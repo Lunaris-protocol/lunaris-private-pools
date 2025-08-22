@@ -8,3 +8,4 @@ poseidon/=../../node_modules/poseidon-solidity
 
 contracts/=src/contracts
 interfaces/=src/interfaces
+encrypted-erc/=src/contracts/encrypted-erc/
