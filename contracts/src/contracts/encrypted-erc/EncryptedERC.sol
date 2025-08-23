@@ -54,6 +54,7 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
  * 2. EncryptedUserBalances: Handles encrypted balance storage and updates
  * 3. AuditorManager: Manages auditor-related functionality
  */
+
 contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
     ///////////////////////////////////////////////////
     ///                   State Variables           ///
@@ -79,6 +80,9 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
     /// @notice mapping to track the encrypted allowance - owner => spender => tokenId => amount | encrypted amount but plained text amount is 0
     mapping(address owner => mapping(address spender => mapping(uint256 tokenId => EGCT allowance)))
         public allowances;
+
+    /// @notice Address of the pool contract for depositPool function
+    address public poolAddress;
 
     ///////////////////////////////////////////////////
     ///                    Events                   ///
@@ -173,6 +177,23 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
     );
 
     /**
+     * @notice Emitted when a deposit to pool operation occurs
+     * @param user Address of the user making the deposit
+     * @param poolAddress Address of the pool receiving the tokens
+     * @param amount Amount of tokens deposited
+     * @param dust Amount of dust (remainder) from the deposit
+     * @param tokenId ID of the token being deposited
+     * @dev This event is emitted when a user deposits tokens into the pool via depositPool function
+     */
+    event DepositPool(
+        address indexed user,
+        address indexed poolAddress,
+        uint256 amount,
+        uint256 dust,
+        uint256 tokenId
+    );
+
+    /**
      * @notice Emitted when a withdrawal operation occurs
      * @param user Address of the user making the withdrawal
      * @param amount Amount of tokens withdrawn
@@ -230,6 +251,9 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         withdrawVerifier = IWithdrawVerifier(params.withdrawVerifier);
         transferVerifier = ITransferVerifier(params.transferVerifier);
         burnVerifier = IBurnVerifier(params.burnVerifier);
+
+        // Set pool address
+        poolAddress = params.poolAddress;
 
         // if contract is not a converter, then set the name and symbol
         if (!params.isConverter) {
@@ -555,6 +579,68 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
 
         // Emit deposit event
         emit Deposit(to, amount, dust, tokenId);
+    }
+
+    /**
+     * @notice Deposits an existing ERC20 token into the pool instead of the contract
+     * @param amount Amount of tokens to deposit
+     * @param tokenAddress Address of the token to deposit
+     * @param amountPCT Amount PCT for the deposit
+     * @dev This function:
+     *      1. Validates the user is registered
+     *      2. Transfers the tokens from the user to the pool
+     *      3. Converts the tokens to encrypted tokens
+     *      4. Adds the encrypted amount to the user's balance
+     *      5. Returns any dust (remainder) to the user
+     *
+     * Requirements:
+     * - Auditor must be set
+     * - Contract must be in converter mode
+     * - Token must not be blacklisted
+     * - User must be registered
+     * - Pool address must be set
+     */
+    function depositPool(
+        uint256 amount,
+        address tokenAddress,
+        uint256[7] memory amountPCT
+    )
+        public
+        onlyIfAuditorSet
+        onlyForConverter
+        revertIfBlacklisted(tokenAddress)
+        onlyIfUserRegistered(msg.sender)
+    {
+        require(poolAddress != address(0), "Pool address not set");
+
+        IERC20 token = IERC20(tokenAddress);
+        uint256 dust;
+        uint256 tokenId;
+        address to = msg.sender;
+
+        // Get the pool's balance before the transfer
+        uint256 balanceBefore = token.balanceOf(poolAddress);
+
+        // Transfer tokens from user to pool
+        SafeERC20.safeTransferFrom(token, to, poolAddress, amount);
+
+        // Get the pool's balance after the transfer
+        uint256 balanceAfter = token.balanceOf(poolAddress);
+
+        // Verify that the actual transferred amount matches the expected amount
+        uint256 actualTransferred = balanceAfter - balanceBefore;
+        if (actualTransferred != amount) {
+            revert TransferFailed();
+        }
+
+        // Convert tokens to encrypted tokens
+        (dust, tokenId) = _convertFrom(to, amount, tokenAddress, amountPCT);
+
+        // Return dust to user
+        SafeERC20.safeTransfer(token, to, dust);
+
+        // Emit deposit pool event
+        emit DepositPool(to, poolAddress, amount, dust, tokenId);
     }
 
     /**
@@ -923,58 +1009,6 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         emit Deposit(recipient, amount, dust, tokenId);
 
         return (dust, tokenId);
-    }
-
-    /**
-     * @notice Deposits encrypted tokens directly for bridge operations
-     * @param recipient The address to receive the encrypted tokens
-     * @param amount Amount of tokens to deposit
-     * @param tokenAddress Address of the token
-     * @param amountPCT Amount PCT for the deposit
-     * @return tokenId The ID of the token
-     * @dev This function allows authorized bridge contracts to deposit encrypted tokens
-     *      directly without ERC20 conversion. Used for cross-chain bridging.
-     */
-    function bridgeDeposit(
-        address recipient,
-        uint256 amount,
-        address tokenAddress,
-        uint256[7] memory amountPCT
-    )
-        external
-        onlyIfAuditorSet
-        onlyForConverter
-        revertIfBlacklisted(tokenAddress)
-        onlyIfUserRegistered(recipient)
-        returns (uint256 tokenId)
-    {
-        // Register the token if it's new
-        if (tokenIds[tokenAddress] == 0) {
-            _addToken(tokenAddress);
-        }
-        tokenId = tokenIds[tokenAddress];
-
-        // Return early if the amount is zero
-        if (amount == 0) {
-            return tokenId;
-        }
-
-        // Get the recipient's public key
-        uint256[2] memory publicKey = registrar.getUserPublicKey(recipient);
-
-        // Encrypt the amount with the recipient's public key
-        EGCT memory eGCT = BabyJubJub.encrypt(
-            Point({x: publicKey[0], y: publicKey[1]}),
-            amount
-        );
-
-        // Add to the recipient's balance directly
-        _addToUserBalance(recipient, tokenId, eGCT, amountPCT);
-
-        // Emit deposit event
-        emit Deposit(recipient, amount, 0, tokenId);
-
-        return tokenId;
     }
 
     ///////////////////////////////////////////////////

@@ -24,6 +24,8 @@ struct CreateEncryptedERCParams {
     address withdrawVerifier;
     address transferVerifier;
     address burnVerifier;
+    // pool address for depositPool function
+    address poolAddress;
 }
 
 struct AmountPCT {
