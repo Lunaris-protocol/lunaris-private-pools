@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="images/logo.svg" alt="Lunaris Logo" width="400"/>
+</div>
+
 # Privacy Pools Core - Hybrid System
 
 Professional implementation of the **Privacy Pools + Encrypted ERC Hybrid System** - a dual-layer privacy solution combining commitment-based mixing with encrypted balance management.
