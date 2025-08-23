@@ -3,7 +3,7 @@
   <defs>
     <style>
       .symbol { fill: #a2d7fc; }
-      .text { fill: #f7f7f7; }
+      .text { fill: #000000; }
     </style>
   </defs>
   

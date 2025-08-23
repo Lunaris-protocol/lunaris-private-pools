@@ -2,21 +2,23 @@
   <img src="images/logo.svg" alt="Lunaris Logo" width="400"/>
 </div>
 
-# Privacy Pools Core - Hybrid System
+# Lunaris Protocol - Privacy Pools Hybrid System
 
-Professional implementation of the **Privacy Pools + Encrypted ERC Hybrid System** - a dual-layer privacy solution combining commitment-based mixing with encrypted balance management.
+Professional implementation of the **Lunaris Privacy Protocol** - a revolutionary dual-layer privacy solution combining commitment-based mixing with encrypted balance management, featuring automated relayer infrastructure for seamless user experience.
 
 ## System Overview
 
-The Hybrid System provides users with **two complementary layers of privacy**:
+The Lunaris Protocol provides users with **three complementary layers of privacy and automation**:
 
 1. **Privacy Pools Layer**: Commitment-based privacy for deposits/withdrawals with ASP compliance
 2. **Encrypted ERC Layer**: Encrypted balance management for private transfers and holdings
+3. **Automated Relayer Layer**: Seamless transaction relaying for gasless and private operations
 
-When users deposit ERC20 tokens, they simultaneously get:
+When users interact with Lunaris Protocol, they benefit from:
 
-- A commitment in the Privacy Pool (for private withdrawals)
-- Encrypted ERC tokens (for private transfers)
+- **Privacy Pool commitments** for anonymous withdrawals
+- **Encrypted ERC tokens** for private transfers
+- **Automated relayers** for gasless minting and seamless UX
 
 ## Project Structure
 
@@ -37,7 +39,7 @@ privacy-pools-core/packages/
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    PRIVACY POOL PROTOCOL                        │
+│                      LUNARIS PROTOCOL                           │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  ┌─────────────────┐    ┌─────────────────┐    ┌──────────────┐ │
@@ -55,6 +57,13 @@ privacy-pools-core/packages/
 │  │  • Coordinates both systems                                 │ │
 │  │  • Ensures balance consistency                              │ │
 │  │  • Manages atomic operations                               │ │
+│  └─────────────────────────────────────────────────────────────┘ │
+│                                   │                             │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │               AUTOMATED RELAYER                             │ │
+│  │  • Gasless transactions for users                          │ │
+│  │  • Automated minting/burning                               │ │
+│  │  • Enhanced privacy through indirection                    │ │
 │  └─────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -76,6 +85,13 @@ privacy-pools-core/packages/
 - Advanced orchestrator for complex hybrid operations
 - Multi-asset support and batch operations
 - Enhanced security and monitoring capabilities
+
+**EncryptedERCRelayer.sol**
+
+- Automated relayer for gasless minting operations
+- Handles encrypted ERC token operations seamlessly
+- Provides enhanced privacy through transaction indirection
+- Integrates with hybrid system for coordinated operations
 
 ### Zero-Knowledge Circuits (`circuits/`)
 
@@ -113,12 +129,13 @@ privacy-pools-core/packages/
 
 ## User Flows
 
-### Deposit Flow
+### Deposit Flow (With Automated Relayer)
 
 ```mermaid
 sequenceDiagram
     participant U as User
     participant S as SDK
+    participant R as EncryptedERC Relayer
     participant E as Entrypoint
     participant P as Privacy Pool
     participant EERC as Encrypted ERC
@@ -126,7 +143,9 @@ sequenceDiagram
 
     U->>S: Initiate deposit
     S->>S: Generate mint proof
-    S->>E: hybridDeposit(ERC20 + mintProof)
+    S->>R: Request gasless mint
+    R->>R: Validate request
+    R->>E: hybridDeposit(ERC20 + mintProof)
     E->>P: Create commitment
     P->>P: Store tokens
     P->>EERC: privateMint(user, mintProof)
@@ -134,16 +153,18 @@ sequenceDiagram
     V-->>EERC: Proof valid
     EERC-->>P: Mint successful
     P-->>E: Commitment created
-    E-->>S: Return commitment
-    S-->>U: Deposit complete
+    E-->>R: Return commitment
+    R-->>S: Relay response
+    S-->>U: Deposit complete (gasless!)
 ```
 
 **Process:**
 
-1. User deposits ERC20 tokens with mint proof
-2. Privacy Pool creates commitment and stores tokens
-3. EncryptedERC automatically mints equivalent tokens
-4. User receives both commitment and encrypted tokens
+1. User initiates deposit through SDK with mint proof
+2. EncryptedERC Relayer handles gasless transaction execution
+3. Privacy Pool creates commitment and stores tokens
+4. EncryptedERC automatically mints equivalent tokens
+5. User receives both commitment and encrypted tokens **without paying gas**
 
 ### Private Transfer Flow
 
@@ -280,11 +301,12 @@ HYBRID SYSTEM (OUR SOLUTION):
 
 ### Gas Cost Analysis
 
-| Operation | Standard Privacy Pool | Hybrid System | Additional Cost |
-| --------- | --------------------- | ------------- | --------------- |
-| Deposit   | ~150k gas             | ~350k gas     | +200k (+133%)   |
-| Withdraw  | ~300k gas             | ~700k gas     | +400k (+133%)   |
-| Transfer  | N/A                   | ~150k gas     | New capability  |
+| Operation | Standard Privacy Pool | Hybrid System | Lunaris + Relayer | User Cost |
+| --------- | --------------------- | ------------- | ----------------- | --------- |
+| Deposit   | ~150k gas             | ~350k gas     | ~400k gas         | **0 gas** |
+| Withdraw  | ~300k gas             | ~700k gas     | ~750k gas         | ~750k gas |
+| Transfer  | N/A                   | ~150k gas     | ~180k gas         | **0 gas** |
+| Mint      | N/A                   | N/A           | ~200k gas         | **0 gas** |
 
 **Cost Breakdown:**
 
@@ -292,6 +314,8 @@ HYBRID SYSTEM (OUR SOLUTION):
 - EncryptedERC minting/burning: ~150k gas
 - Additional coordination: ~50k gas
 - Storage operations: ~50k gas
+- **Relayer operations: ~50k gas (absorbed by protocol)**
+- **User gas cost: 0 for most operations** ✨
 
 ### Security Model
 
@@ -300,13 +324,15 @@ TRUST ASSUMPTIONS:
 ├── ZK Verifiers (trusted circuits)
 ├── Privacy Pool Entrypoint (trusted entry)
 ├── EncryptedERC Registrar (trusted registration)
-└── Hybrid Pool Contract (privileged coordinator)
+├── Hybrid Pool Contract (privileged coordinator)
+└── EncryptedERC Relayer (trusted transaction relay)
 
 SECURITY GUARANTEES:
 ├── Balance Consistency (orchestrator ensures)
 ├── Atomic Operations (all-or-nothing)
 ├── Proof Validity (all ZK proofs verified)
-└── Authorization (only approved operations)
+├── Authorization (only approved operations)
+└── Gasless Security (relayer cannot manipulate user funds)
 ```
 
 ### Attack Vectors & Mitigations
@@ -325,13 +351,14 @@ SECURITY GUARANTEES:
 - Node.js 18+
 - Foundry (for contract development)
 - Yarn package manager
+- Docker (for relayer services)
 
 ### Installation
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-org/privacy-pools-core.git
-cd privacy-pools-core/packages
+# Clone the Lunaris Protocol repository
+git clone https://github.com/Lunaris-protocol/lunaris-private-pools.git
+cd lunaris-private-pools/packages
 
 # Install dependencies
 yarn install
@@ -349,11 +376,18 @@ cd contracts
 # Compile contracts
 forge build
 
-# Run hybrid tests
+# Run all hybrid tests including relayer tests
 forge test --match-contract HybridTest -vvv
 
 # Test coverage
 forge coverage --match-contract Hybrid
+
+# Start relayer service locally
+cd ../relayer
+docker-compose up -d
+
+# Test relayer integration
+yarn test:integration
 ```
 
 ### Deployment
@@ -363,8 +397,16 @@ forge coverage --match-contract Hybrid
 export PRIVATE_KEY="your_private_key"
 export RPC_URL="https://api.avax-test.network/ext/bc/C/rpc"
 
-# Deploy hybrid system
-forge script script/hybrid/DeployWithConfig.s.sol:DeployWithConfig --broadcast --verify
+# Deploy complete Lunaris Protocol system with relayer
+forge script script/DeployHybridSystem.s.sol:DeployHybridSystem --broadcast --verify
+
+# Deploy and configure relayer
+cd ../relayer
+cp config.example.json config.json
+# Edit config.json with deployed contract addresses
+
+# Start relayer service
+docker-compose up -d
 
 # Check system status
 forge script script/hybrid/Interact.s.sol:Interact --sig "checkStatus()"
@@ -499,6 +541,16 @@ Before mainnet deployment:
 
 ---
 
-**Result**: Users get dual-layer privacy combining the best of both privacy pool mixing and encrypted balance management in a single, seamless system.
+**Result**: Users get triple-layer privacy combining privacy pool mixing, encrypted balance management, and gasless transactions through automated relayers - all in a single, seamless protocol.
 
-**Contact**: For questions or support, open an issue in this repository.
+---
+
+## 🔗 Lunaris Protocol Links
+
+- [Website](https://lunaris.dev)
+- [Documentation](https://docs.lunaris.dev)
+- [GitHub](https://github.com/Lunaris-protocol)
+- [Discord](https://discord.gg/lunaris)
+- [Twitter](https://twitter.com/lunaris_dev)
+
+**Contact**: For questions or support, open an issue in this repository or join our Discord community.
