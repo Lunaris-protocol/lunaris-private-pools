@@ -2,7 +2,9 @@
 pragma solidity 0.8.28;
 
 import "forge-std/Test.sol";
-import {SimpleHybridPool, MintProof, BurnProof, ProofPoints} from "../../src/contracts/hybrid/SimpleHybridPool.sol";
+import {SimpleHybridPool} from "../../src/contracts/hybrid/SimpleHybridPool.sol";
+import {EncryptedERCRelayer} from "../../src/contracts/hybrid/EncryptedERCRelayer.sol";
+import {MintProof, BurnProof, ProofPoints} from "../../src/contracts/encrypted-erc/types/Types.sol";
 import {ProofLib} from "../../src/contracts/lib/ProofLib.sol";
 import {IPrivacyPool} from "../../src/interfaces/IPrivacyPool.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
@@ -15,6 +17,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
  */
 contract HybridTest is Test {
     SimpleHybridPool public pool;
+    EncryptedERCRelayer public relayer;
     MockERC20 public token;
     MockEncryptedERC public encryptedERC;
     MockVerifier public withdrawalVerifier;
@@ -34,17 +37,23 @@ contract HybridTest is Test {
         ragequitVerifier = new MockVerifier();
         entrypoint = new MockEntrypoint();
 
+        // Deploy relayer
+        relayer = new EncryptedERCRelayer(address(encryptedERC));
+
         // Deploy hybrid pool
         pool = new SimpleHybridPool(
             address(entrypoint),
             address(withdrawalVerifier),
             address(ragequitVerifier),
             address(token),
-            address(encryptedERC)
+            address(relayer)
         );
 
-        // Configure entrypoint to use this pool
+        // Configure the system
         entrypoint.setPool(address(pool));
+
+        // Authorize pool to use relayer
+        relayer.setAuthorizedCaller(address(pool), true);
 
         // Enable hybrid mode
         vm.prank(address(entrypoint));
@@ -79,9 +88,13 @@ contract HybridTest is Test {
         assertTrue(address(pool) != address(0), "Pool should be deployed");
         assertTrue(pool.hybridEnabled(), "Hybrid should be enabled");
         assertEq(
-            address(pool.encryptedERC()),
-            address(encryptedERC),
-            "EncryptedERC should be set"
+            address(pool.encryptedERCRelayer()),
+            address(relayer),
+            "EncryptedERCRelayer should be set"
+        );
+        assertTrue(
+            relayer.authorizedCallers(address(pool)),
+            "Pool should be authorized caller"
         );
     }
 
@@ -170,9 +183,9 @@ contract HybridTest is Test {
         // Verify the system is set up correctly for withdrawal
         assertTrue(pool.hybridEnabled(), "Hybrid should be enabled");
         assertEq(
-            address(pool.encryptedERC()),
-            address(encryptedERC),
-            "EncryptedERC should be set"
+            address(pool.encryptedERCRelayer()),
+            address(relayer),
+            "EncryptedERCRelayer should be set"
         );
 
         // Verify the pool has tokens from deposit
@@ -200,14 +213,11 @@ contract HybridTest is Test {
     }
 
     /**
-     * @notice Test that withdrawal fails if EncryptedERC burn fails
+     * @notice Test that withdrawal works without automatic burn (user handles burn separately)
      */
-    function testWithdrawFailsIfBurnFails() public {
+    function testWithdrawWithoutAutomaticBurn() public {
         // First perform a deposit
         testHybridDeposit();
-
-        // Configure mock to fail burn
-        encryptedERC.setShouldFailBurn(true);
 
         vm.startPrank(user1);
 
@@ -219,46 +229,13 @@ contract HybridTest is Test {
             pubSignals: [111, 222, DEPOSIT_AMOUNT / 2, 333, 20, 444, 20, 555]
         });
 
-        // Create mock burn proof
-        BurnProof memory burnProof = BurnProof({
-            proofPoints: ProofPoints({
-                a: [uint256(1), uint256(2)],
-                b: [[uint256(3), uint256(4)], [uint256(5), uint256(6)]],
-                c: [uint256(7), uint256(8)]
-            }),
-            publicSignals: [
-                uint256(456),
-                uint256(789),
-                uint256(100),
-                uint256(200),
-                uint256(300),
-                uint256(400),
-                uint256(50),
-                uint256(100),
-                uint256(150),
-                uint256(200),
-                uint256(111),
-                uint256(222),
-                uint256(1),
-                uint256(2),
-                uint256(3),
-                uint256(4),
-                uint256(5),
-                uint256(6),
-                uint256(7)
-            ]
-        });
-
         IPrivacyPool.Withdrawal memory withdrawal = IPrivacyPool.Withdrawal({
             processooor: user1,
             data: ""
         });
 
-        uint256[7] memory balancePCT = [uint256(1), 2, 3, 4, 5, 6, 7];
-
-        // Should revert because burn fails
-        vm.expectRevert();
-        pool.hybridWithdraw(withdrawal, withdrawProof, burnProof, balancePCT);
+        // Should succeed - no automatic burn, user handles it separately
+        pool.hybridWithdraw(withdrawal, withdrawProof);
 
         vm.stopPrank();
     }
@@ -289,7 +266,7 @@ contract HybridTest is Test {
             "Pool should have total deposited amount"
         );
 
-        // Verify EncryptedERC was called for each deposit
+        // Verify EncryptedERC was called for each deposit through relayer
         assertTrue(
             encryptedERC.mintCalled(),
             "Should have called mint for each deposit"
@@ -381,11 +358,7 @@ contract MockEncryptedERC {
     address public lastMintUser;
     bool public shouldFailBurn;
 
-    function privateMint(
-        address user,
-        MintProof calldata,
-        bytes calldata
-    ) external {
+    function privateMint(address user, MintProof calldata) external {
         mintCalled = true;
         lastMintUser = user;
     }

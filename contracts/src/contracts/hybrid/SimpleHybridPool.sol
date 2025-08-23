@@ -8,35 +8,10 @@ import {PoseidonT4} from "poseidon/PoseidonT4.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-interface IEncryptedERC {
-    function privateMint(
-        address user,
-        MintProof calldata proof,
-        bytes calldata message
-    ) external;
-
-    function privateBurn(
-        BurnProof calldata proof,
-        uint256[7] calldata balancePCT
-    ) external;
-}
-
-// Minimum required types
-struct MintProof {
-    ProofPoints proofPoints;
-    uint256[24] publicSignals;
-}
-
-struct BurnProof {
-    ProofPoints proofPoints;
-    uint256[19] publicSignals;
-}
-
-struct ProofPoints {
-    uint256[2] a;
-    uint256[2][2] b;
-    uint256[2] c;
-}
+// Import types from EncryptedERC
+import {MintProof, BurnProof} from "../encrypted-erc/types/Types.sol";
+// Import the relayer contract
+import {EncryptedERCRelayer} from "./EncryptedERCRelayer.sol";
 
 /**
  * @title SimpleHybridPool
@@ -49,8 +24,8 @@ struct ProofPoints {
 contract SimpleHybridPool is PrivacyPool {
     using SafeERC20 for IERC20;
 
-    /// @notice El contrato EncryptedERC
-    IEncryptedERC public encryptedERC;
+    /// @notice El relayer para EncryptedERC
+    EncryptedERCRelayer public encryptedERCRelayer;
 
     /// @notice If hybrid mode is enabled
     bool public hybridEnabled;
@@ -67,9 +42,9 @@ contract SimpleHybridPool is PrivacyPool {
         address _withdrawalVerifier,
         address _ragequitVerifier,
         address _asset,
-        address _encryptedERC
+        address _encryptedERCRelayer
     ) PrivacyPool(_entrypoint, _withdrawalVerifier, _ragequitVerifier, _asset) {
-        encryptedERC = IEncryptedERC(_encryptedERC);
+        encryptedERCRelayer = EncryptedERCRelayer(_encryptedERCRelayer);
         hybridEnabled = false; // Start disabled
     }
 
@@ -108,9 +83,9 @@ contract SimpleHybridPool is PrivacyPool {
             _precommitmentHash
         );
 
-        // 2. IF HYBRID ENABLED: MINT ENCRYPTEDERC
-        if (hybridEnabled && address(encryptedERC) != address(0)) {
-            try encryptedERC.privateMint(_depositor, _mintProof, "") {
+        // 2. MINT ENCRYPTEDERC IF HYBRID ENABLED
+        if (hybridEnabled && address(encryptedERCRelayer) != address(0)) {
+            try encryptedERCRelayer.relayPrivateMint(_depositor, _mintProof) {
                 emit HybridDeposit(_depositor, _commitment, _value);
             } catch {
                 revert InvalidProof();
@@ -121,13 +96,12 @@ contract SimpleHybridPool is PrivacyPool {
     }
 
     /**
-     * @notice Withdraw from pool + burn EncryptedERC if enabled
+     * @notice Withdraw from pool (user must burn EncryptedERC separately if hybrid enabled)
+     * @dev For hybrid mode: User should call EncryptedERC.privateBurn() BEFORE calling this function
      */
     function hybridWithdraw(
         Withdrawal memory _withdrawal,
-        ProofLib.WithdrawProof memory _poolProof,
-        BurnProof calldata _burnProof,
-        uint256[7] calldata _balancePCT
+        ProofLib.WithdrawProof memory _poolProof
     ) external validWithdrawal(_withdrawal, _poolProof) {
         // 1. VERIFY PRIVACY POOL PROOF
         if (
@@ -141,25 +115,18 @@ contract SimpleHybridPool is PrivacyPool {
             revert InvalidProof();
         }
 
-        uint256 withdrawnAmount = _poolProof.pubSignals[2]; // withdrawnValue
+        uint256 withdrawnAmount = _poolProof.withdrawnValue();
 
-        // 2. IF HYBRID ENABLED: BURN ENCRYPTEDERC FIRST
-        if (hybridEnabled && address(encryptedERC) != address(0)) {
-            // The user MUST provide a valid burn proof
-            encryptedERC.privateBurn(_burnProof, _balancePCT);
-            emit HybridWithdraw(msg.sender, withdrawnAmount);
-        }
-
-        // 3. PROCEED WITH NORMAL PRIVACY POOL WITHDRAWAL
-        _spend(_poolProof.pubSignals[1]); // existingNullifierHash
-        _insert(_poolProof.pubSignals[0]); // newCommitmentHash
+        // 2. PROCEED WITH NORMAL PRIVACY POOL WITHDRAWAL
+        _spend(_poolProof.existingNullifierHash());
+        _insert(_poolProof.newCommitmentHash());
         _push(_withdrawal.processooor, withdrawnAmount);
 
         emit Withdrawn(
             _withdrawal.processooor,
             withdrawnAmount,
-            _poolProof.pubSignals[1], // spentNullifier
-            _poolProof.pubSignals[0] // newCommitment
+            _poolProof.existingNullifierHash(),
+            _poolProof.newCommitmentHash()
         );
     }
 

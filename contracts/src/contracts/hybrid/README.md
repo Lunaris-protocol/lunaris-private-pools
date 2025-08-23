@@ -1,311 +1,137 @@
-# Hybrid Privacy Pool + EncryptedERC System
+# Hybrid Privacy Pool System
 
-## 🎯 Overview
+## Overview
 
-This directory contains the **Hybrid Integration** between Privacy Pools and EncryptedERC tokens. The system provides users with **dual-layer privacy** by combining commitment-based privacy (Privacy Pools) with encrypted balance privacy (EncryptedERC).
+The Hybrid Privacy Pool system integrates Privacy Pools with EncryptedERC tokens using a **Relayer Pattern** to solve the ownership problem where `EncryptedERC.privateMint()` requires `onlyOwner` but we need multiple contracts to trigger mints.
 
-## 🏗️ Architecture
-
-### Core Components
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    HYBRID SYSTEM ARCHITECTURE                   │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────────┐    ┌─────────────────┐    ┌──────────────┐ │
-│  │   ERC20 Token   │    │  Privacy Pool   │    │   EERC Token │ │
-│  │                 │    │                 │    │              │ │
-│  │ • Public        │◄──►│ • Commitments   │◄──►│ • Encrypted  │ │
-│  │ • Transparent   │    │ • ZK Proofs     │    │ • Private    │ │
-│  │ • Regulated     │    │ • Mixing        │    │ • Transfer   │ │
-│  └─────────────────┘    └─────────────────┘    └──────────────┘ │
-│           │                       │                      │      │
-│           └───────────────────────┼──────────────────────┘      │
-│                                   │                             │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │              SIMPLE HYBRID POOL                            │ │
-│  │  • Coordinates both systems                                 │ │
-│  │  • Ensures atomic operations                               │ │
-│  │  • Manages hybrid mode toggle                              │ │
-│  └─────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────┐    ┌──────────────────────┐    ┌─────────────────┐
+│  SimpleHybridPool│────│ EncryptedERCRelayer  │────│   EncryptedERC  │
+│                 │    │                      │    │                 │
+│ - hybridDeposit │    │ - relayPrivateMint   │    │ - privateMint   │
+│ - hybridWithdraw│    │ - authorizedCallers  │    │ - privateBurn   │
+└─────────────────┘    └──────────────────────┘    └─────────────────┘
 ```
 
-### Key Features
+## Components
 
-- **🔄 Automatic Minting**: When users deposit ERC20 tokens, EncryptedERC tokens are automatically minted
-- **🔥 Automatic Burning**: When users withdraw from the Privacy Pool, their EncryptedERC tokens are automatically burned
-- **⚙️ Backward Compatibility**: Existing Privacy Pool functionality remains intact
-- **🎛️ Configurable**: Hybrid mode can be enabled/disabled per pool
-- **🔒 Atomic Operations**: All operations are atomic - either both succeed or both fail
+### 1. EncryptedERCRelayer
 
-## 📋 Contract Details
+- **Purpose**: Acts as owner of EncryptedERC and relays calls from authorized contracts
+- **Key Features**:
+  - Owns the EncryptedERC contract
+  - Maintains a whitelist of authorized callers
+  - Relays `privateMint` calls to EncryptedERC
+  - Provides admin functions for EncryptedERC management
 
-### SimpleHybridPool
+### 2. SimpleHybridPool
+
+- **Purpose**: Privacy Pool that automatically mints EncryptedERC on deposit
+- **Key Features**:
+  - Inherits from PrivacyPool
+  - Calls relayer for EncryptedERC minting on deposit
+  - Users handle EncryptedERC burning separately on withdrawal
+
+## Deployment & Setup
+
+### Step 1: Deploy Contracts
 
 ```solidity
-contract SimpleHybridPool is PrivacyPool {
-    IEncryptedERC public encryptedERC;
-    bool public hybridEnabled;
+// 1. Deploy or use existing EncryptedERC
+EncryptedERC encryptedERC = new EncryptedERC(params);
 
-    // Core hybrid functions
-    function hybridDeposit(address _depositor, uint256 _value, uint256 _precommitmentHash, MintProof calldata _mintProof) external returns (uint256);
-    function hybridWithdraw(Withdrawal memory _withdrawal, ProofLib.WithdrawProof memory _poolProof, BurnProof calldata _burnProof, uint256[7] calldata _balancePCT) external;
+// 2. Deploy Relayer
+EncryptedERCRelayer relayer = new EncryptedERCRelayer(address(encryptedERC));
 
-    // Configuration
-    function setHybridEnabled(bool _enabled) external;
-}
+// 3. Deploy Hybrid Pool
+SimpleHybridPool pool = new SimpleHybridPool(
+    entrypoint,
+    withdrawalVerifier,
+    ragequitVerifier,
+    asset,
+    address(relayer)
+);
 ```
 
-#### Key Functions
+### Step 2: Configure System
 
-- **`hybridDeposit()`**: Performs a Privacy Pool deposit and automatically mints EncryptedERC tokens
-- **`hybridWithdraw()`**: Performs a Privacy Pool withdrawal and automatically burns EncryptedERC tokens
-- **`setHybridEnabled()`**: Enables/disables the hybrid functionality
+```solidity
+// 1. Transfer EncryptedERC ownership to relayer
+encryptedERC.transferOwnership(address(relayer));
 
-## 🔄 Usage Flow
+// 2. Authorize pool to call relayer
+relayer.setAuthorizedCaller(address(pool), true);
 
-### 1. Deposit Flow
+// 3. Set auditor (through relayer)
+relayer.setAuditorPublicKey(auditorAddress);
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant PP as Privacy Pool
-    participant EERC as Encrypted ERC
-
-    U->>PP: hybridDeposit(ERC20 + mintProof)
-    PP->>PP: Create commitment
-    PP->>EERC: privateMint(user, mintProof)
-    EERC-->>U: Encrypted tokens minted
-    PP-->>U: Commitment returned
+// 4. Enable hybrid mode
+pool.setHybridEnabled(true);
 ```
 
-**Step-by-step process:**
+## User Flow
 
-1. User calls `hybridDeposit()` with ERC20 tokens and mint proof
-2. Privacy Pool creates commitment and stores tokens
-3. EncryptedERC tokens are automatically minted to the user
-4. User receives both Privacy Pool commitment and EncryptedERC tokens
+### Deposit Flow
 
-### 2. Withdrawal Flow
+1. User calls `entrypoint.deposit()` with mint proof
+2. Entrypoint calls `pool.hybridDeposit()`
+3. Pool performs normal Privacy Pool deposit
+4. Pool calls `relayer.relayPrivateMint()`
+5. Relayer calls `encryptedERC.privateMint()`
+6. User receives both Privacy Pool commitment and EncryptedERC tokens
 
-```mermaid
-sequenceDiagram
-    participant U as User
-    participant PP as Privacy Pool
-    participant EERC as Encrypted ERC
+### Withdrawal Flow
 
-    U->>PP: hybridWithdraw(withdrawal + poolProof + burnProof)
-    PP->>PP: Verify pool withdrawal proof
-    PP->>EERC: privateBurn(burnProof, balancePCT)
-    EERC-->>PP: Burn confirmed
-    PP->>U: Return ERC20 tokens
-```
+1. **User first calls** `encryptedERC.privateBurn()` directly
+2. User calls `pool.hybridWithdraw()` with Privacy Pool proof
+3. Pool performs normal Privacy Pool withdrawal
+4. User receives ERC20 tokens
 
-**Step-by-step process:**
+## Security Considerations
 
-1. User calls `hybridWithdraw()` with withdrawal proof and burn proof
-2. Privacy Pool validates the withdrawal proof
-3. EncryptedERC tokens are automatically burned
-4. Privacy Pool processes withdrawal and returns ERC20 tokens
-5. User receives ERC20 tokens and Privacy Pool commitment
+### Access Control
 
-## 🎨 Privacy Benefits
+- **Relayer**: Only owner can authorize/deauthorize callers
+- **EncryptedERC**: Relayer is the owner, controls all privileged operations
+- **SimpleHybridPool**: Only entrypoint can call deposit functions
 
-### Dual Privacy Protection
+### Burn Handling
 
-| Privacy Aspect              | Standard ERC20 | Privacy Pool Only | EERC Only  | **Hybrid (Our Solution)** |
-| --------------------------- | -------------- | ----------------- | ---------- | ------------------------- |
-| **Transfer Privacy**        | ❌ Public      | ❌ Public         | ✅ Private | ✅ **Private**            |
-| **Balance Privacy**         | ❌ Public      | ❌ Public         | ✅ Private | ✅ **Private**            |
-| **Deposit/Withdrawal Link** | ❌ Public      | ✅ Private        | ❌ Public  | ✅ **Private**            |
-| **Regulatory Compliance**   | ✅ Yes         | ✅ Yes            | ❌ No      | ✅ **Yes**                |
-
-### Privacy Comparison
-
-```
-Standard ERC20:
-┌─────────────────────────────────────────────────────────┐
-│ Public: Amount, Sender, Receiver, Timestamp            │
-│ Private: Nothing                                        │
-└─────────────────────────────────────────────────────────┘
-
-Privacy Pool Only:
-┌─────────────────────────────────────────────────────────┐
-│ Public: Deposit/Withdrawal amounts, timestamps         │
-│ Private: Connection between deposits and withdrawals   │
-└─────────────────────────────────────────────────────────┘
-
-Encrypted ERC Only:
-┌─────────────────────────────────────────────────────────┐
-│ Public: Nothing                                         │
-│ Private: Everything (amounts, transfers, balances)     │
-└─────────────────────────────────────────────────────────┘
-
-HYBRID (Our Solution):
-┌─────────────────────────────────────────────────────────┐
-│ Public: Only deposit/withdrawal events                 │
-│ Private: All transfers, balances, connections          │
-│ Compliance: Approved address sets for withdrawals      │
-└─────────────────────────────────────────────────────────┘
-```
-
-## ⚡ Gas Costs & Performance
-
-| Operation | Standard Privacy Pool | Hybrid System | Additional Cost |
-| --------- | --------------------- | ------------- | --------------- |
-| Deposit   | ~150k gas             | ~350k gas     | +200k (+133%)   |
-| Withdraw  | ~300k gas             | ~700k gas     | +400k (+133%)   |
-| Transfer  | N/A                   | ~150k gas     | New capability  |
-
-**Cost Breakdown:**
-
-- Privacy Pool operations: ~150k-300k gas
-- EncryptedERC minting/burning: ~150k gas
-- Additional coordination: ~50k gas
-- Storage operations: ~50k gas
-
-## 🛡️ Security Model
+- Burns are **not** automatic on withdrawal
+- Users must call `EncryptedERC.privateBurn()` directly
+- This is because `privateBurn` uses `msg.sender` and requires the actual user to call it
 
 ### Trust Assumptions
 
-1. **ZK Verifiers**: Trusted circuits for proof validation
-2. **Privacy Pool Entrypoint**: Trusted entry point (unchanged)
-3. **EncryptedERC Registrar**: Trusted user registration (unchanged)
-4. **Hybrid Pool Contract**: Trusted coordinator with privileged access
+- Users trust the relayer owner to not authorize malicious contracts
+- Users trust the relayer to not abuse EncryptedERC ownership
+- Consider using a multisig or DAO for relayer ownership
 
-### Security Guarantees
+## Benefits
 
-1. **Balance Consistency**: EncryptedERC balances match pool commitments
-2. **Atomic Operations**: Withdrawals are atomic - burn must succeed for withdrawal
-3. **Proof Validity**: All ZK proofs must be valid for operations to proceed
-4. **Authorization**: Only authorized entrypoint can call hybrid functions
+1. **Separation of Concerns**: Each contract has a clear responsibility
+2. **Flexibility**: Relayer can serve multiple pools or contracts
+3. **Security**: Granular access control through authorization system
+4. **Auditability**: Clear call paths and event emissions
+5. **Upgradability**: Can authorize new pool versions without changing EncryptedERC
 
-### Attack Vectors & Mitigations
+## Limitations
 
-| Attack Vector               | Mitigation                                  |
-| --------------------------- | ------------------------------------------- |
-| **Invalid Proofs**          | Dual verification, circuit audits           |
-| **State Desynchronization** | Atomic operations, comprehensive validation |
-| **Gas Griefing**            | Gas limits, efficient implementations       |
-| **Reentrancy**              | Reentrancy guards, proper state management  |
+1. **Additional Complexity**: Extra contract and setup steps
+2. **Gas Overhead**: Additional relay call adds gas cost
+3. **Manual Burns**: Users must handle EncryptedERC burns separately
+4. **Trust Dependency**: Relayer owner has significant control
 
-## 🧪 Testing
+## Events
 
-The system includes comprehensive tests that verify:
+### EncryptedERCRelayer
 
-- ✅ Proper initialization and configuration
-- ✅ Deposit flow with automatic EncryptedERC minting
-- ✅ Withdrawal flow with automatic EncryptedERC burning
-- ✅ Hybrid mode enable/disable functionality
-- ✅ Error handling for failed operations
-- ✅ Security edge cases and attack prevention
-- ✅ Gas optimization verification
-- ✅ Backward compatibility validation
+- `CallerAuthorized(address indexed caller, bool authorized)`
+- `RelayedMint(address indexed user, address indexed caller)`
 
-### Running Tests
+### SimpleHybridPool
 
-```bash
-# Run all hybrid tests
-forge test --match-contract HybridTest -vvv
-
-# Run specific test
-forge test --match-test testHybridDeposit -vvv
-
-# Run with coverage
-forge coverage --match-contract HybridTest
-```
-
-### Key Test Scenarios
-
-- **End-to-end deposit with encrypted minting**
-- **End-to-end withdrawal with coordinated burning**
-- **Multi-user scenarios with different assets**
-- **Security edge cases and attack prevention**
-- **Gas optimization verification**
-- **Backward compatibility validation**
-
-## 🔧 Configuration
-
-### Required Contracts (must be deployed first)
-
-- Privacy Pools Entrypoint
-- Privacy Pool verifiers (withdrawal, ragequit)
-- EncryptedERC components (registrar, verifiers)
-- ERC20 tokens to support
-
-### System Parameters
-
-- Minimum deposit amounts per asset
-- Fee structures (vetting fees, relay fees)
-- Tree depth limits
-- Gas limits
-
-### Environment Variables
-
-```bash
-# Deployment
-PRIVATE_KEY=your_deployer_private_key
-RPC_URL=your_rpc_endpoint
-ETHERSCAN_API_KEY=your_api_key
-
-# Network specific
-FUJI_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
-AVALANCHE_RPC_URL=https://api.avax.network/ext/bc/C/rpc
-```
-
-## 🚀 Integration
-
-This hybrid system integrates seamlessly with existing Privacy Pool infrastructure while adding EncryptedERC functionality. The system maintains all existing Privacy Pool features while adding the new hybrid capabilities.
-
-### Integration Points
-
-1. **Privacy Pool**: Extended with hybrid functionality
-2. **EncryptedERC**: Extended with orchestrator privileges
-3. **Entrypoint**: Coordinates both systems
-4. **SDK**: Updated to support hybrid operations
-
-## 📈 Roadmap
-
-### Phase 1: Core Implementation ✅
-
-- [x] Hybrid contracts development
-- [x] Integration architecture
-- [x] Basic testing suite
-
-### Phase 2: Testing & Security 🔄
-
-- [ ] Comprehensive security audit
-- [ ] Gas optimization
-- [ ] Edge case testing
-- [ ] Performance benchmarking
-
-### Phase 3: Production Ready 📋
-
-- [ ] Mainnet deployment
-- [ ] Multi-signature setup
-- [ ] Monitoring integration
-- [ ] Documentation finalization
-
-### Phase 4: Advanced Features 🚀
-
-- [ ] Multi-chain support
-- [ ] SDK integration
-- [ ] UI/UX improvements
-- [ ] Governance mechanisms
-
-## 🔗 Related Projects
-
-- **[Privacy Pools Protocol](https://github.com/0xPARC/privacy-pools)** - Base protocol
-- **[Encrypted ERC](https://github.com/ava-labs/encrypted-erc)** - Encrypted balance tokens
-- **[Circom](https://github.com/iden3/circom)** - Circuit development framework
-- **[Foundry](https://github.com/foundry-rs/foundry)** - Development toolkit
-
-## 📄 License
-
-This project is licensed under the Apache 2.0 License. See the LICENSE file for details.
-
----
-
-**🎯 Mission**: Providing users with the strongest possible privacy through dual-layer protection while maintaining seamless user experience and backward compatibility.
+- `HybridDeposit(address indexed user, uint256 indexed commitment, uint256 amount)`
+- `HybridWithdraw(address indexed user, uint256 amount)`
