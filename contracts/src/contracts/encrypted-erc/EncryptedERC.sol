@@ -54,6 +54,7 @@ import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IER
  * 2. EncryptedUserBalances: Handles encrypted balance storage and updates
  * 3. AuditorManager: Manages auditor-related functionality
  */
+
 contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
     ///////////////////////////////////////////////////
     ///                   State Variables           ///
@@ -77,8 +78,11 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
     mapping(uint256 mintNullifier => bool isUsed) public alreadyMinted;
 
     /// @notice mapping to track the encrypted allowance - owner => spender => tokenId => amount | encrypted amount but plained text amount is 0
-    mapping(address owner => mapping(address spender => mapping(uint256 tokenId => EGCT allowance))) public allowances;
-    
+    mapping(address owner => mapping(address spender => mapping(uint256 tokenId => EGCT allowance)))
+        public allowances;
+
+    /// @notice Address of the pool contract for depositPool function
+    address public poolAddress;
 
     ///////////////////////////////////////////////////
     ///                    Events                   ///
@@ -173,6 +177,23 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
     );
 
     /**
+     * @notice Emitted when a deposit to pool operation occurs
+     * @param user Address of the user making the deposit
+     * @param poolAddress Address of the pool receiving the tokens
+     * @param amount Amount of tokens deposited
+     * @param dust Amount of dust (remainder) from the deposit
+     * @param tokenId ID of the token being deposited
+     * @dev This event is emitted when a user deposits tokens into the pool via depositPool function
+     */
+    event DepositPool(
+        address indexed user,
+        address indexed poolAddress,
+        uint256 amount,
+        uint256 dust,
+        uint256 tokenId
+    );
+
+    /**
      * @notice Emitted when a withdrawal operation occurs
      * @param user Address of the user making the withdrawal
      * @param amount Amount of tokens withdrawn
@@ -230,6 +251,9 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         withdrawVerifier = IWithdrawVerifier(params.withdrawVerifier);
         transferVerifier = ITransferVerifier(params.transferVerifier);
         burnVerifier = IBurnVerifier(params.burnVerifier);
+
+        // Set pool address
+        poolAddress = params.poolAddress;
 
         // if contract is not a converter, then set the name and symbol
         if (!params.isConverter) {
@@ -558,6 +582,68 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
     }
 
     /**
+     * @notice Deposits an existing ERC20 token into the pool instead of the contract
+     * @param amount Amount of tokens to deposit
+     * @param tokenAddress Address of the token to deposit
+     * @param amountPCT Amount PCT for the deposit
+     * @dev This function:
+     *      1. Validates the user is registered
+     *      2. Transfers the tokens from the user to the pool
+     *      3. Converts the tokens to encrypted tokens
+     *      4. Adds the encrypted amount to the user's balance
+     *      5. Returns any dust (remainder) to the user
+     *
+     * Requirements:
+     * - Auditor must be set
+     * - Contract must be in converter mode
+     * - Token must not be blacklisted
+     * - User must be registered
+     * - Pool address must be set
+     */
+    function depositPool(
+        uint256 amount,
+        address tokenAddress,
+        uint256[7] memory amountPCT
+    )
+        public
+        onlyIfAuditorSet
+        onlyForConverter
+        revertIfBlacklisted(tokenAddress)
+        onlyIfUserRegistered(msg.sender)
+    {
+        require(poolAddress != address(0), "Pool address not set");
+
+        IERC20 token = IERC20(tokenAddress);
+        uint256 dust;
+        uint256 tokenId;
+        address to = msg.sender;
+
+        // Get the pool's balance before the transfer
+        uint256 balanceBefore = token.balanceOf(poolAddress);
+
+        // Transfer tokens from user to pool
+        SafeERC20.safeTransferFrom(token, to, poolAddress, amount);
+
+        // Get the pool's balance after the transfer
+        uint256 balanceAfter = token.balanceOf(poolAddress);
+
+        // Verify that the actual transferred amount matches the expected amount
+        uint256 actualTransferred = balanceAfter - balanceBefore;
+        if (actualTransferred != amount) {
+            revert TransferFailed();
+        }
+
+        // Convert tokens to encrypted tokens
+        (dust, tokenId) = _convertFrom(to, amount, tokenAddress, amountPCT);
+
+        // Return dust to user
+        SafeERC20.safeTransfer(token, to, dust);
+
+        // Emit deposit pool event
+        emit DepositPool(to, poolAddress, amount, dust, tokenId);
+    }
+
+    /**
      * @notice Withdraws encrypted tokens as regular ERC20 tokens
      * @param tokenId ID of the token to withdraw
      * @param proof The withdraw proof proving the validity of the withdrawal
@@ -659,14 +745,10 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         address spender,
         uint256 tokenId,
         ApproveInputs calldata approveData
-    ) 
-        external 
-        onlyIfUserRegistered(msg.sender) 
-        onlyIfUserRegistered(spender) 
-    {
+    ) external onlyIfUserRegistered(msg.sender) onlyIfUserRegistered(spender) {
         // Store the encrypted allowance
         allowances[msg.sender][spender][tokenId] = approveData.encryptedAmount;
-        
+
         // We emit with amount = 0 to maintain privacy while still having an event
         emit Allowance(msg.sender, spender, tokenId, 0);
     }
@@ -697,7 +779,9 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         _validateTransferFromProof(from, to, proof);
 
         // Extract transfer inputs from proof
-        TransferInputs memory transferInputs = _extractTransferInputs(proof.publicSignals);
+        TransferInputs memory transferInputs = _extractTransferInputs(
+            proof.publicSignals
+        );
 
         // Verify allowance exists (real verification happens through other means)
         _checkAllowance(from, msg.sender, tokenId, 0);
@@ -744,24 +828,32 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         address spender,
         uint256 tokenId,
         EGCT calldata addedValue
-    ) 
-        external 
-        onlyIfUserRegistered(msg.sender) 
-        onlyIfUserRegistered(spender) 
-    {
-        EGCT storage currentAllowance = allowances[msg.sender][spender][tokenId];
-        
+    ) external onlyIfUserRegistered(msg.sender) onlyIfUserRegistered(spender) {
+        EGCT storage currentAllowance = allowances[msg.sender][spender][
+            tokenId
+        ];
+
         // If no previous allowance, set the new value
-        if (currentAllowance.c1.x == 0 && currentAllowance.c1.y == 0 && 
-            currentAllowance.c2.x == 0 && currentAllowance.c2.y == 0) {
+        if (
+            currentAllowance.c1.x == 0 &&
+            currentAllowance.c1.y == 0 &&
+            currentAllowance.c2.x == 0 &&
+            currentAllowance.c2.y == 0
+        ) {
             currentAllowance.c1 = addedValue.c1;
             currentAllowance.c2 = addedValue.c2;
         } else {
             // Add to existing allowance using homomorphic properties
-            currentAllowance.c1 = BabyJubJub._add(currentAllowance.c1, addedValue.c1);
-            currentAllowance.c2 = BabyJubJub._add(currentAllowance.c2, addedValue.c2);
+            currentAllowance.c1 = BabyJubJub._add(
+                currentAllowance.c1,
+                addedValue.c1
+            );
+            currentAllowance.c2 = BabyJubJub._add(
+                currentAllowance.c2,
+                addedValue.c2
+            );
         }
-        
+
         emit Allowance(msg.sender, spender, tokenId, 0);
     }
 
@@ -776,24 +868,30 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         address spender,
         uint256 tokenId,
         EGCT calldata subtractedValue
-    ) 
-        external 
-        onlyIfUserRegistered(msg.sender) 
-        onlyIfUserRegistered(spender) 
-    {
-        EGCT storage currentAllowance = allowances[msg.sender][spender][tokenId];
-        
+    ) external onlyIfUserRegistered(msg.sender) onlyIfUserRegistered(spender) {
+        EGCT storage currentAllowance = allowances[msg.sender][spender][
+            tokenId
+        ];
+
         // Ensure allowance exists
         require(
-            currentAllowance.c1.x != 0 || currentAllowance.c1.y != 0 || 
-            currentAllowance.c2.x != 0 || currentAllowance.c2.y != 0,
+            currentAllowance.c1.x != 0 ||
+                currentAllowance.c1.y != 0 ||
+                currentAllowance.c2.x != 0 ||
+                currentAllowance.c2.y != 0,
             "No allowance to decrease"
         );
-        
+
         // Subtract from existing allowance using homomorphic properties
-        currentAllowance.c1 = BabyJubJub._sub(currentAllowance.c1, subtractedValue.c1);
-        currentAllowance.c2 = BabyJubJub._sub(currentAllowance.c2, subtractedValue.c2);
-        
+        currentAllowance.c1 = BabyJubJub._sub(
+            currentAllowance.c1,
+            subtractedValue.c1
+        );
+        currentAllowance.c2 = BabyJubJub._sub(
+            currentAllowance.c2,
+            subtractedValue.c2
+        );
+
         emit Allowance(msg.sender, spender, tokenId, 0);
     }
 
@@ -806,11 +904,7 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
     function clearAllowance(
         address spender,
         uint256 tokenId
-    ) 
-        external 
-        onlyIfUserRegistered(msg.sender) 
-        onlyIfUserRegistered(spender) 
-    {
+    ) external onlyIfUserRegistered(msg.sender) onlyIfUserRegistered(spender) {
         delete allowances[msg.sender][spender][tokenId];
         emit Allowance(msg.sender, spender, tokenId, 0);
     }
@@ -826,15 +920,15 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         address[] calldata spenders,
         uint256 tokenId,
         EGCT[] calldata amounts
-    ) 
-        external 
-        onlyIfUserRegistered(msg.sender) 
-    {
+    ) external onlyIfUserRegistered(msg.sender) {
         require(spenders.length == amounts.length, "Array length mismatch");
         require(spenders.length > 0, "Empty arrays");
-        
+
         for (uint256 i = 0; i < spenders.length; i++) {
-            require(registrar.isUserRegistered(spenders[i]), "Spender not registered");
+            require(
+                registrar.isUserRegistered(spenders[i]),
+                "Spender not registered"
+            );
             allowances[msg.sender][spenders[i]][tokenId] = amounts[i];
             emit Allowance(msg.sender, spenders[i], tokenId, 0);
         }
@@ -853,8 +947,10 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         uint256 tokenId
     ) external view returns (bool) {
         EGCT storage allowance = allowances[owner][spender][tokenId];
-        return (allowance.c1.x != 0 || allowance.c1.y != 0 || 
-                allowance.c2.x != 0 || allowance.c2.y != 0);
+        return (allowance.c1.x != 0 ||
+            allowance.c1.y != 0 ||
+            allowance.c2.x != 0 ||
+            allowance.c2.y != 0);
     }
 
     /**
@@ -899,67 +995,20 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         }
 
         // Convert tokens to encrypted tokens for the recipient
-        (dust, tokenId) = _convertFrom(recipient, amount, tokenAddress, amountPCT);
+        (dust, tokenId) = _convertFrom(
+            recipient,
+            amount,
+            tokenAddress,
+            amountPCT
+        );
 
         // Return dust to the calling contract (bridge)
         SafeERC20.safeTransfer(token, msg.sender, dust);
 
         // Emit deposit event
         emit Deposit(recipient, amount, dust, tokenId);
-        
+
         return (dust, tokenId);
-    }
-
-    /**
-     * @notice Deposits encrypted tokens directly for bridge operations
-     * @param recipient The address to receive the encrypted tokens
-     * @param amount Amount of tokens to deposit
-     * @param tokenAddress Address of the token
-     * @param amountPCT Amount PCT for the deposit
-     * @return tokenId The ID of the token
-     * @dev This function allows authorized bridge contracts to deposit encrypted tokens
-     *      directly without ERC20 conversion. Used for cross-chain bridging.
-     */
-    function bridgeDeposit(
-        address recipient,
-        uint256 amount,
-        address tokenAddress,
-        uint256[7] memory amountPCT
-    )
-        external
-        onlyIfAuditorSet
-        onlyForConverter
-        revertIfBlacklisted(tokenAddress)
-        onlyIfUserRegistered(recipient)
-        returns (uint256 tokenId)
-    {
-        // Register the token if it's new
-        if (tokenIds[tokenAddress] == 0) {
-            _addToken(tokenAddress);
-        }
-        tokenId = tokenIds[tokenAddress];
-
-        // Return early if the amount is zero
-        if (amount == 0) {
-            return tokenId;
-        }
-
-        // Get the recipient's public key
-        uint256[2] memory publicKey = registrar.getUserPublicKey(recipient);
-
-        // Encrypt the amount with the recipient's public key
-        EGCT memory eGCT = BabyJubJub.encrypt(
-            Point({x: publicKey[0], y: publicKey[1]}),
-            amount
-        );
-
-        // Add to the recipient's balance directly
-        _addToUserBalance(recipient, tokenId, eGCT, amountPCT);
-
-        // Emit deposit event
-        emit Deposit(recipient, amount, 0, tokenId);
-        
-        return tokenId;
     }
 
     ///////////////////////////////////////////////////
@@ -1351,8 +1400,14 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
      * @param b Second EGCT to compare
      * @return True if they are equal, false otherwise
      */
-    function _compareEGCT(EGCT storage a, EGCT memory b) internal view returns (bool) {
-        return (a.c1.x == b.c1.x && a.c1.y == b.c1.y && a.c2.x == b.c2.x && a.c2.y == b.c2.y);
+    function _compareEGCT(
+        EGCT storage a,
+        EGCT memory b
+    ) internal view returns (bool) {
+        return (a.c1.x == b.c1.x &&
+            a.c1.y == b.c1.y &&
+            a.c2.x == b.c2.x &&
+            a.c2.y == b.c2.y);
     }
 
     /**
@@ -1360,7 +1415,9 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
      * @param input The 40-element input array
      * @return output The 32-element output array (truncated)
      */
-    function _convertTo32Array(uint256[40] memory input) internal pure returns (uint256[32] memory output) {
+    function _convertTo32Array(
+        uint256[40] memory input
+    ) internal pure returns (uint256[32] memory output) {
         for (uint256 i = 0; i < 32; i++) {
             output[i] = input[i];
         }
@@ -1384,7 +1441,10 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
         // This function mainly checks that an allowance exists
         EGCT storage allowance = allowances[owner][spender][tokenId];
         require(
-            allowance.c1.x != 0 || allowance.c1.y != 0 || allowance.c2.x != 0 || allowance.c2.y != 0,
+            allowance.c1.x != 0 ||
+                allowance.c1.y != 0 ||
+                allowance.c2.x != 0 ||
+                allowance.c2.y != 0,
             "No allowance set"
         );
     }
@@ -1438,12 +1498,18 @@ contract EncryptedERC is TokenTracker, EncryptedUserBalances, AuditorManager {
     ) internal {
         // Verify current allowance
         EGCT storage currentAllowance = allowances[from][msg.sender][tokenId];
-        if (!_compareEGCT(currentAllowance, transferFromInputs.providedAllowance)) {
+        if (
+            !_compareEGCT(
+                currentAllowance,
+                transferFromInputs.providedAllowance
+            )
+        ) {
             revert InvalidProof();
         }
 
         // Update allowance
-        allowances[from][msg.sender][tokenId] = transferFromInputs.newAllowanceAmount;
+        allowances[from][msg.sender][tokenId] = transferFromInputs
+            .newAllowanceAmount;
     }
 
     /**

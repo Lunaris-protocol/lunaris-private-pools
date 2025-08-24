@@ -9,37 +9,22 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 /**
  * @title HybridPoolController
  * @notice SIMPLE controller that coordinates PrivacyPool deposits with EncryptedERC minting
- * @dev This is the SIMPLE version that just does:
- *      1. When user deposits → also mint EncryptedERC
- *      2. When user withdraws → also burn EncryptedERC
+ * @dev This controller acts as a coordinator but the actual hybrid logic
+ *      should be implemented in the SimpleHybridPool contract itself.
+ *      This controller is for cases where you want to use separate contracts.
  */
 contract HybridPoolController is Ownable {
     /// @notice The privacy pool contract
     IPrivacyPool public privacyPool;
 
-    /// @notice The EncryptedERC contract
-    IEncryptedERC public encryptedERC;
-
     /// @notice Whether hybrid functionality is enabled
     bool public hybridEnabled;
 
-    /// @notice Mapping to track deposits for later burns
-    mapping(address user => uint256 totalDeposited) public userDeposits;
-
-    event DepositWithMint(
-        address indexed user,
-        uint256 poolCommitment,
-        uint256 encryptedAmount
-    );
-    event WithdrawWithBurn(
-        address indexed user,
-        uint256 withdrawAmount,
-        uint256 burnAmount
-    );
+    event StandardDeposit(address indexed user, uint256 poolCommitment);
+    event StandardWithdraw(address indexed user, uint256 withdrawAmount);
 
     error HybridDisabled();
     error PrivacyPoolNotSet();
-    error EncryptedERCNotSet();
 
     constructor() Ownable(msg.sender) {}
 
@@ -51,13 +36,6 @@ contract HybridPoolController is Ownable {
     }
 
     /**
-     * @notice Set the EncryptedERC address
-     */
-    function setEncryptedERC(address _encryptedERC) external onlyOwner {
-        encryptedERC = IEncryptedERC(_encryptedERC);
-    }
-
-    /**
      * @notice Enable/disable hybrid functionality
      */
     function setHybridEnabled(bool _enabled) external onlyOwner {
@@ -65,67 +43,7 @@ contract HybridPoolController is Ownable {
     }
 
     /**
-     * @notice Deposit into privacy pool + mint EncryptedERC tokens
-     * @param _value Amount to deposit
-     * @param _precommitment Precommitment for privacy pool
-     */
-    function hybridDeposit(
-        uint256 _value,
-        uint256 _precommitment
-    ) external payable returns (uint256 _commitment) {
-        if (!hybridEnabled) revert HybridDisabled();
-        if (address(privacyPool) == address(0)) revert PrivacyPoolNotSet();
-        if (address(encryptedERC) == address(0)) revert EncryptedERCNotSet();
-
-        // 1. Deposit into privacy pool
-        _commitment = privacyPool.deposit{value: msg.value}(
-            msg.sender,
-            _value,
-            _precommitment
-        );
-
-        // 2. Mint equivalent EncryptedERC tokens
-        encryptedERC.mint(msg.sender, _value);
-
-        // 3. Track user deposits
-        userDeposits[msg.sender] += _value;
-
-        emit DepositWithMint(msg.sender, _commitment, _value);
-    }
-
-    /**
-     * @notice Withdraw from privacy pool + burn EncryptedERC tokens
-     * @param _withdrawal Withdrawal data
-     * @param _proof Privacy pool withdrawal proof
-     * @param _burnAmount Amount of EncryptedERC to burn
-     */
-    function hybridWithdraw(
-        IPrivacyPool.Withdrawal memory _withdrawal,
-        ProofLib.WithdrawProof memory _proof,
-        uint256 _burnAmount
-    ) external {
-        if (!hybridEnabled) revert HybridDisabled();
-        if (address(privacyPool) == address(0)) revert PrivacyPoolNotSet();
-        if (address(encryptedERC) == address(0)) revert EncryptedERCNotSet();
-
-        // 1. Burn EncryptedERC tokens first
-        encryptedERC.burn(msg.sender, _burnAmount);
-
-        // 2. Proceed with privacy pool withdrawal
-        privacyPool.withdraw(_withdrawal, _proof);
-
-        // 3. Update tracking
-        userDeposits[msg.sender] -= _burnAmount;
-
-        emit WithdrawWithBurn(
-            msg.sender,
-            _proof.pubSignals[2], // withdrawnValue is at index 2
-            _burnAmount
-        );
-    }
-
-    /**
-     * @notice Standard privacy pool deposit (no EncryptedERC minting)
+     * @notice Standard privacy pool deposit
      */
     function standardDeposit(
         uint256 _value,
@@ -133,16 +51,17 @@ contract HybridPoolController is Ownable {
     ) external payable returns (uint256 _commitment) {
         if (address(privacyPool) == address(0)) revert PrivacyPoolNotSet();
 
-        return
-            privacyPool.deposit{value: msg.value}(
-                msg.sender,
-                _value,
-                _precommitment
-            );
+        _commitment = privacyPool.deposit{value: msg.value}(
+            msg.sender,
+            _value,
+            _precommitment
+        );
+
+        emit StandardDeposit(msg.sender, _commitment);
     }
 
     /**
-     * @notice Standard privacy pool withdraw (no EncryptedERC burning)
+     * @notice Standard privacy pool withdraw
      */
     function standardWithdraw(
         IPrivacyPool.Withdrawal memory _withdrawal,
@@ -151,14 +70,7 @@ contract HybridPoolController is Ownable {
         if (address(privacyPool) == address(0)) revert PrivacyPoolNotSet();
 
         privacyPool.withdraw(_withdrawal, _proof);
+
+        emit StandardWithdraw(msg.sender, ProofLib.withdrawnValue(_proof));
     }
 }
-
-// Simple interface for EncryptedERC (just what we need)
-interface IEncryptedERC {
-    function mint(address to, uint256 amount) external;
-
-    function burn(address from, uint256 amount) external;
-}
-
-// Already imported above

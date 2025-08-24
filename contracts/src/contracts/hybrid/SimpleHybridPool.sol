@@ -8,51 +8,27 @@ import {PoseidonT4} from "poseidon/PoseidonT4.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
-interface IEncryptedERC {
-    function privateMint(
-        address user,
-        MintProof calldata proof,
-        bytes calldata message
-    ) external;
-
-    function privateBurn(
-        BurnProof calldata proof,
-        uint256[7] calldata balancePCT
-    ) external;
-}
-
-// Minimum required types
-struct MintProof {
-    ProofPoints proofPoints;
-    uint256[24] publicSignals;
-}
-
-struct BurnProof {
-    ProofPoints proofPoints;
-    uint256[19] publicSignals;
-}
-
-struct ProofPoints {
-    uint256[2] a;
-    uint256[2][2] b;
-    uint256[2] c;
-}
+// Import EncryptedERC contract and types
+import {EncryptedERC} from "../encrypted-erc/EncryptedERC.sol";
+import {BurnProof} from "../encrypted-erc/types/Types.sol";
+import {IState} from "../../interfaces/IState.sol";
 
 /**
  * @title SimpleHybridPool
- * @notice SIMPLE: Privacy Pool that mints EncryptedERC on deposit and burns on withdraw
+ * @notice SIMPLE: Privacy Pool that deposits to EncryptedERC pool on deposit
  *
  * WHAT IT DOES:
- * 1. User deposits ERC20 → Privacy Pool + mint EncryptedERC
- * 2. User withdraws from Privacy Pool → burn EncryptedERC + receive ERC20
+ * 1. User deposits ERC20 → Privacy Pool + deposit to EncryptedERC pool
+ * 2. User withdraws from Privacy Pool → receive ERC20 (EncryptedERC handled separately)
  */
 contract SimpleHybridPool is PrivacyPool {
     using SafeERC20 for IERC20;
+    using ProofLib for ProofLib.WithdrawProof;
 
-    /// @notice El contrato EncryptedERC
-    IEncryptedERC public encryptedERC;
+    /// @notice EncryptedERC contract for hybrid functionality
+    EncryptedERC public encryptedERC;
 
-    /// @notice If hybrid mode is enabled
+    /// @notice If hybrid mode is enable sd
     bool public hybridEnabled;
 
     event HybridDeposit(
@@ -60,7 +36,11 @@ contract SimpleHybridPool is PrivacyPool {
         uint256 indexed commitment,
         uint256 amount
     );
-    event HybridWithdraw(address indexed user, uint256 amount);
+    event HybridWithdraw(
+        address indexed user,
+        uint256 amount,
+        uint256 nullifierHash
+    );
 
     constructor(
         address _entrypoint,
@@ -69,7 +49,8 @@ contract SimpleHybridPool is PrivacyPool {
         address _asset,
         address _encryptedERC
     ) PrivacyPool(_entrypoint, _withdrawalVerifier, _ragequitVerifier, _asset) {
-        encryptedERC = IEncryptedERC(_encryptedERC);
+        if (_encryptedERC == address(0)) revert IState.ZeroAddress();
+        encryptedERC = EncryptedERC(_encryptedERC);
         hybridEnabled = false; // Start disabled
     }
 
@@ -81,15 +62,14 @@ contract SimpleHybridPool is PrivacyPool {
     }
 
     /**
-     * @notice Normal deposit + mint EncryptedERC if enabled
+     * @notice Normal deposit + deposit to EncryptedERC pool if enabled
      */
     function hybridDeposit(
         address _depositor,
         uint256 _value,
         uint256 _precommitmentHash,
-        MintProof calldata _mintProof
+        uint256[7] calldata _amountPCT
     ) external payable onlyEntrypoint returns (uint256 _commitment) {
-        // 1. PERFORM NORMAL DEPOSIT IN PRIVACY POOL
         if (dead) revert PoolIsDead();
         if (_value >= type(uint128).max) revert InvalidDepositValue();
 
@@ -108,20 +88,27 @@ contract SimpleHybridPool is PrivacyPool {
             _precommitmentHash
         );
 
-        // 2. IF HYBRID ENABLED: MINT ENCRYPTEDERC
-        if (hybridEnabled && address(encryptedERC) != address(0)) {
-            try encryptedERC.privateMint(_depositor, _mintProof, "") {
-                emit HybridDeposit(_depositor, _commitment, _value);
-            } catch {
-                revert InvalidProof();
-            }
+        IERC20(ASSET).approve(address(encryptedERC), _value);
+
+        try encryptedERC.depositPool(_value, ASSET, _amountPCT) {
+            emit HybridDeposit(_depositor, _commitment, _value);
+        } catch {
+            revert("EncryptedERC deposit failed");
         }
 
         return _commitment;
     }
 
     /**
-     * @notice Withdraw from pool + burn EncryptedERC if enabled
+     * @notice Hybrid withdraw: Burns user's EncryptedERC tokens and withdraws ERC20 from pool
+     * @param _withdrawal Standard privacy pool withdrawal parameters
+     * @param _poolProof Privacy pool withdrawal proof
+     * @param _burnProof EncryptedERC burn proof to burn user's encrypted tokens
+     * @param _balancePCT Balance PCT for user after burn
+     * @dev This function:
+     *      1. Verifies the privacy pool withdrawal proof
+     *      2. Burns the user's EncryptedERC tokens (if hybrid enabled)
+     *      3. Transfers ERC20 tokens from pool to user
      */
     function hybridWithdraw(
         Withdrawal memory _withdrawal,
@@ -141,32 +128,39 @@ contract SimpleHybridPool is PrivacyPool {
             revert InvalidProof();
         }
 
-        uint256 withdrawnAmount = _poolProof.pubSignals[2]; // withdrawnValue
+        uint256 withdrawnAmount = _poolProof.withdrawnValue();
 
-        // 2. IF HYBRID ENABLED: BURN ENCRYPTEDERC FIRST
-        if (hybridEnabled && address(encryptedERC) != address(0)) {
-            // The user MUST provide a valid burn proof
-            encryptedERC.privateBurn(_burnProof, _balancePCT);
-            emit HybridWithdraw(msg.sender, withdrawnAmount);
+        // 2. BURN ENCRYPTEDERC TOKENS IF HYBRID ENABLED
+        try encryptedERC.privateBurn(_burnProof, _balancePCT) {
+            // Burn successful - continue with withdrawal
+        } catch {
+            revert("EncryptedERC burn failed");
         }
 
         // 3. PROCEED WITH NORMAL PRIVACY POOL WITHDRAWAL
-        _spend(_poolProof.pubSignals[1]); // existingNullifierHash
-        _insert(_poolProof.pubSignals[0]); // newCommitmentHash
+        _spend(_poolProof.existingNullifierHash());
+        _insert(_poolProof.newCommitmentHash());
         _push(_withdrawal.processooor, withdrawnAmount);
 
         emit Withdrawn(
             _withdrawal.processooor,
             withdrawnAmount,
-            _poolProof.pubSignals[1], // spentNullifier
-            _poolProof.pubSignals[0] // newCommitment
+            _poolProof.existingNullifierHash(),
+            _poolProof.newCommitmentHash()
+        );
+
+        // Emit hybrid-specific event
+        emit HybridWithdraw(
+            _withdrawal.processooor,
+            withdrawnAmount,
+            _poolProof.existingNullifierHash()
         );
     }
 
     /**
      * @notice Pull ERC20 tokens
      */
-    function _pull(address _sender, uint256 _value) internal override {
+    function _pull(address _sender, uint256 _value) internal virtual override {
         if (msg.value > 0) revert("No native asset");
         IERC20(ASSET).safeTransferFrom(_sender, address(this), _value);
     }
@@ -174,7 +168,10 @@ contract SimpleHybridPool is PrivacyPool {
     /**
      * @notice Push ERC20 tokens
      */
-    function _push(address _recipient, uint256 _value) internal override {
+    function _push(
+        address _recipient,
+        uint256 _value
+    ) internal virtual override {
         IERC20(ASSET).safeTransfer(_recipient, _value);
     }
 }
