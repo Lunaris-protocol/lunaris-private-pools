@@ -3,10 +3,10 @@ pragma solidity 0.8.28;
 
 import {PoseidonT4} from "poseidon/PoseidonT4.sol";
 
-import {Constants} from "./lib/Constants.sol";
-import {ProofLib} from "./lib/ProofLib.sol";
+import {Constants} from "libraries/Constants.sol";
+import {ProofLib} from "libraries/ProofLib.sol";
 
-import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
+import {IPrivacyPool} from "../interfaces/core/IPrivacyPool.sol";
 
 import {State} from "./State.sol";
 

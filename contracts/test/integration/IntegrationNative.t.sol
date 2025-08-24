@@ -4,8 +4,8 @@ pragma solidity 0.8.28;
 import {IntegrationBase} from './IntegrationBase.sol';
 import {InternalLeanIMT, LeanIMTData} from 'lean-imt/InternalLeanIMT.sol';
 
-import {IPrivacyPool} from 'interfaces/IPrivacyPool.sol';
-import {IState} from 'interfaces/IState.sol';
+import {IPrivacyPool} from 'interfaces/core/IPrivacyPool.sol';
+import {IState} from 'interfaces/core/IState.sol';
 
 contract IntegrationNative is IntegrationBase {
   using InternalLeanIMT for LeanIMTData;

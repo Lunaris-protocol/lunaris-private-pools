@@ -8,11 +8,11 @@ import {SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
 import {IERC20} from "@oz/interfaces/IERC20.sol";
 
-import {Constants} from "./lib/Constants.sol";
-import {ProofLib} from "./lib/ProofLib.sol";
+import {Constants} from "libraries/Constants.sol";
+import {ProofLib} from "libraries/ProofLib.sol";
 
-import {IEntrypoint} from "interfaces/IEntrypoint.sol";
-import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
+import {IEntrypoint} from "../interfaces/core/IEntrypoint.sol";
+import {IPrivacyPool} from "../interfaces/core/IPrivacyPool.sol";
 
 /**
  * @title Entrypoint

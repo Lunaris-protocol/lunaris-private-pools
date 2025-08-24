@@ -6,7 +6,7 @@
 pragma solidity 0.8.28;
 
 import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
-import {TokenBlacklisted, InvalidOperation} from "../errors/Errors.sol";
+import {TokenBlacklisted, InvalidOperation} from "../../../errors/Errors.sol";
 
 /**
  * @title TokenTracker

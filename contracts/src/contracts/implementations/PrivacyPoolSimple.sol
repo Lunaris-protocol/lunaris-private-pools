@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.28;
 
-import {Constants} from "contracts/lib/Constants.sol";
+import {Constants} from "libraries/Constants.sol";
 
 import {PrivacyPool} from "contracts/PrivacyPool.sol";
-import {IPrivacyPoolSimple} from "interfaces/IPrivacyPool.sol";
+import {IPrivacyPoolSimple} from "../../interfaces/core/IPrivacyPool.sol";
 
 /**
  * @title PrivacyPoolSimple

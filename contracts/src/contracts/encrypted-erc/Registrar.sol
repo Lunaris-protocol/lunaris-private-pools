@@ -5,12 +5,12 @@
 
 pragma solidity 0.8.28;
 
-import {Point, RegisterProof} from "./types/Types.sol";
-import {IRegistrationVerifier} from "./interfaces/verifiers/IRegistrationVerifier.sol";
-import {UserAlreadyRegistered, InvalidChainId, InvalidSender, InvalidRegistrationHash, InvalidProof} from "./errors/Errors.sol";
+import {Point, RegisterProof} from "../../types/Types.sol";
+import {IRegistrationVerifier} from "../../interfaces/verifiers/IRegistrationVerifier.sol";
+import {UserAlreadyRegistered, InvalidChainId, InvalidSender, InvalidRegistrationHash, InvalidProof} from "../../errors/Errors.sol";
 
 // libraries
-import {BabyJubJub} from "./libraries/BabyJubJub.sol";
+import {BabyJubJub} from "../../libraries/BabyJubJub.sol";
 
 /**
  * @title Registrar

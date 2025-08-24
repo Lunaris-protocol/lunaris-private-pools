@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import {Setup, vm} from '../Setup.t.sol';
 import {Constants, IPrivacyPool, IPrivacyPool, ProofLib} from 'contracts/PrivacyPool.sol';
-import {IEntrypoint} from 'interfaces/IEntrypoint.sol';
+import {IEntrypoint} from 'interfaces/core/IEntrypoint.sol';
 
 contract HandlersEntrypoint is Setup {
   function handler_deposit(uint256 _amount, uint256 _precommitment) public {

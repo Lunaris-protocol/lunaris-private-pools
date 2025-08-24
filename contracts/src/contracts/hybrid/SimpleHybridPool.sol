@@ -2,16 +2,16 @@
 pragma solidity 0.8.28;
 
 import {PrivacyPool} from "../PrivacyPool.sol";
-import {ProofLib} from "../lib/ProofLib.sol";
-import {Constants} from "../lib/Constants.sol";
+import {ProofLib} from "libraries/ProofLib.sol";
+import {Constants} from "libraries/Constants.sol";
 import {PoseidonT4} from "poseidon/PoseidonT4.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 
 // Import EncryptedERC contract and types
 import {EncryptedERC} from "../encrypted-erc/EncryptedERC.sol";
-import {BurnProof} from "../encrypted-erc/types/Types.sol";
-import {IState} from "../../interfaces/IState.sol";
+import {BurnProof} from "../../types/Types.sol";
+import {IState} from "../../interfaces/core/IState.sol";
 
 /**
  * @title SimpleHybridPool
@@ -107,7 +107,7 @@ contract SimpleHybridPool is PrivacyPool {
      * @param _balancePCT Balance PCT for user after burn
      * @dev This function:
      *      1. Verifies the privacy pool withdrawal proof
-     *      2. Burns the user's EncryptedERC tokens (if hybrid enabled)
+     *      2. Burns the user's EncryptedERC tokens
      *      3. Transfers ERC20 tokens from pool to user
      */
     function hybridWithdraw(

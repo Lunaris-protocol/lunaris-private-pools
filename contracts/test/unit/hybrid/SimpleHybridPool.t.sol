@@ -8,10 +8,10 @@ import {PoseidonT4} from "poseidon/PoseidonT4.sol";
 
 import {SimpleHybridPool} from "contracts/hybrid/SimpleHybridPool.sol";
 import {EncryptedERC} from "contracts/encrypted-erc/EncryptedERC.sol";
-import {CreateEncryptedERCParams, BurnProof, ProofPoints} from "contracts/encrypted-erc/types/Types.sol";
-import {ProofLib} from "contracts/lib/ProofLib.sol";
-import {IPrivacyPool} from "interfaces/IPrivacyPool.sol";
-import {IState} from "interfaces/IState.sol";
+import {CreateEncryptedERCParams, BurnProof, ProofPoints} from "../../../src/types/Types.sol";
+import {ProofLib} from "libraries/ProofLib.sol";
+import {IPrivacyPool} from "interfaces/core/IPrivacyPool.sol";
+import {IState} from "interfaces/core/IState.sol";
 import {Constants} from "test/helper/Constants.sol";
 
 /**

@@ -5,10 +5,25 @@
 
 pragma solidity 0.8.28;
 
+/*///////////////////////////////////////////////////////////////
+                        CORE TYPES
+//////////////////////////////////////////////////////////////*/
+
 struct Point {
     uint256 x;
     uint256 y;
 }
+
+/// @dev The proof base is used to verify the proof
+struct ProofPoints {
+    uint256[2] a;
+    uint256[2][2] b;
+    uint256[2] c;
+}
+
+/*///////////////////////////////////////////////////////////////
+                    ENCRYPTED ERC TYPES
+//////////////////////////////////////////////////////////////*/
 
 struct CreateEncryptedERCParams {
     // registrar contract address for fetching users public key
@@ -52,12 +67,16 @@ struct EGCT {
     Point c2;
 }
 
-/// @dev The proof base is used to verify the proof
-struct ProofPoints {
-    uint256[2] a;
-    uint256[2][2] b;
-    uint256[2] c;
+struct Metadata {
+    address messageFrom;
+    address messageTo;
+    string messageType;
+    bytes encryptedMsg;
 }
+
+/*///////////////////////////////////////////////////////////////
+                    PROOF TYPES
+//////////////////////////////////////////////////////////////*/
 
 struct RegisterProof {
     ProofPoints proofPoints;
@@ -84,6 +103,10 @@ struct WithdrawProof {
     uint256[16] publicSignals;
 }
 
+/*///////////////////////////////////////////////////////////////
+                    TRANSFER TYPES
+//////////////////////////////////////////////////////////////*/
+
 struct TransferInputs {
     EGCT providedBalance;
     EGCT senderEncryptedAmount;
@@ -108,11 +131,4 @@ struct TransferFromInputs {
 struct ApproveInputs {
     EGCT encryptedAmount;
     uint256[7] amountPCT;
-}
-
-struct Metadata {
-    address messageFrom;
-    address messageTo;
-    string messageType;
-    bytes encryptedMsg;
 }

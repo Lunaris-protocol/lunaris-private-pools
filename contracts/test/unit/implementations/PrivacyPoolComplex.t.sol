@@ -5,8 +5,8 @@ import {IPrivacyPoolComplex, PrivacyPoolComplex} from 'contracts/implementations
 import {Test} from 'forge-std/Test.sol';
 
 import {IERC20} from '@oz/token/ERC20/IERC20.sol';
-import {IPrivacyPool} from 'interfaces/IPrivacyPool.sol';
-import {IState} from 'interfaces/IState.sol';
+import {IPrivacyPool} from 'interfaces/core/IPrivacyPool.sol';
+import {IState} from 'interfaces/core/IState.sol';
 
 import {Constants} from 'test/helper/Constants.sol';
 

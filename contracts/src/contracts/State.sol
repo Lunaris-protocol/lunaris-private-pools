@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.28;
 
-import {Constants} from "./lib/Constants.sol";
+import {Constants} from "libraries/Constants.sol";
 import {InternalLeanIMT, LeanIMTData} from "lean-imt/InternalLeanIMT.sol";
 
-import {IEntrypoint} from "interfaces/IEntrypoint.sol";
-import {IState} from "interfaces/IState.sol";
-import {IVerifier} from "interfaces/IVerifier.sol";
+import {IEntrypoint} from "../interfaces/core/IEntrypoint.sol";
+import {IState} from "../interfaces/core/IState.sol";
+import {IVerifier} from "../interfaces/verifiers/IVerifier.sol";
 
 /**
  * @title State

@@ -82,6 +82,10 @@ contract EncryptedERC is
     /// @notice Mapping to track used mint nullifiers to prevent double-minting
     mapping(uint256 mintNullifier => bool isUsed) public alreadyMinted;
 
+    /// @notice Pool address
+
+    address public immutable poolAddress;
+
     ///////////////////////////////////////////////////
     ///                    Events                   ///
     ///////////////////////////////////////////////////
@@ -189,7 +193,8 @@ contract EncryptedERC is
             params.mintVerifier == address(0) ||
             params.withdrawVerifier == address(0) ||
             params.transferVerifier == address(0) ||
-            params.burnVerifier == address(0)
+            params.burnVerifier == address(0) ||
+            params.poolAddress == address(0)
         ) {
             revert ZeroAddress();
         }
@@ -455,6 +460,68 @@ contract EncryptedERC is
         onlyIfUserRegistered(msg.sender)
     {
         _executeDeposit(amount, tokenAddress, amountPCT, message);
+    }
+
+    /**
+     * @notice Deposits an existing ERC20 token into the pool instead of the contract
+     * @param amount Amount of tokens to deposit
+     * @param tokenAddress Address of the token to deposit
+     * @param amountPCT Amount PCT for the deposit
+     * @dev This function:
+     *      1. Validates the user is registered
+     *      2. Transfers the tokens from the user to the pool
+     *      3. Converts the tokens to encrypted tokens
+     *      4. Adds the encrypted amount to the user's balance
+     *      5. Returns any dust (remainder) to the user
+     *
+     * Requirements:
+     * - Auditor must be set
+     * - Contract must be in converter mode
+     * - Token must not be blacklisted
+     * - User must be registered
+     * - Pool address must be set
+     */
+    function depositPool(
+        uint256 amount,
+        address tokenAddress,
+        uint256[7] memory amountPCT
+    )
+        public
+        onlyIfAuditorSet
+        onlyForConverter
+        revertIfBlacklisted(tokenAddress)
+        onlyIfUserRegistered(msg.sender)
+    {
+        require(poolAddress != address(0), "Pool address not set");
+
+        IERC20 token = IERC20(tokenAddress);
+        uint256 dust;
+        uint256 tokenId;
+        address to = msg.sender;
+
+        // Get the pool's balance before the transfer
+        uint256 balanceBefore = token.balanceOf(poolAddress);
+
+        // Transfer tokens from user to pool
+        SafeERC20.safeTransferFrom(token, to, poolAddress, amount);
+
+        // Get the pool's balance after the transfer
+        uint256 balanceAfter = token.balanceOf(poolAddress);
+
+        // Verify that the actual transferred amount matches the expected amount
+        uint256 actualTransferred = balanceAfter - balanceBefore;
+        if (actualTransferred != amount) {
+            revert TransferFailed();
+        }
+
+        // Convert tokens to encrypted tokens
+        (dust, tokenId) = _convertFrom(to, amount, tokenAddress, amountPCT);
+
+        // Return dust to user
+        SafeERC20.safeTransfer(token, to, dust);
+
+        // Emit deposit pool event
+        emit DepositPool(to, poolAddress, amount, dust, tokenId);
     }
 
     /**

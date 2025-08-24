@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity 0.8.28;
 
-import {ProofLib} from "../contracts/lib/ProofLib.sol";
+import {ProofLib} from "../../libraries/ProofLib.sol";
 import {IState} from "./IState.sol";
 
 /**

@@ -8,8 +8,8 @@ import {IERC20} from '@oz/interfaces/IERC20.sol';
 import {PrivacyPoolComplex} from 'contracts/implementations/PrivacyPoolComplex.sol';
 import {InternalLeanIMT, LeanIMTData} from 'lean-imt/InternalLeanIMT.sol';
 
-import {IPrivacyPool} from 'interfaces/IPrivacyPool.sol';
-import {IState} from 'interfaces/IState.sol';
+import {IPrivacyPool} from 'interfaces/core/IPrivacyPool.sol';
+import {IState} from 'interfaces/core/IState.sol';
 
 contract IntegrationERC20 is IntegrationBase {
   using InternalLeanIMT for LeanIMTData;

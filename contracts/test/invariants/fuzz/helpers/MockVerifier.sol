@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.0;
 
-import {IVerifier} from 'interfaces/IVerifier.sol';
+import {IVerifier} from 'interfaces/verifiers/IVerifier.sol';
 
 contract MockVerifier is IVerifier {
   bool public validProof = true;
