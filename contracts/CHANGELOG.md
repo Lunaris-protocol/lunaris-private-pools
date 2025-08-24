@@ -16,3 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Initial state of the code for upcoming releases
+
+### Added
+
+- Hybrid pool with EERC added

@@ -4,7 +4,7 @@
   "description": "Solidity smart contracts for the Privacy Pool protocol",
   "repository": "https://github.com/Lunaris-protocol/lunaris-private-pools",
   "license": "Apache-2.0",
-  "author": "Tomi204",
+  "author": "Tomi204 & Wonderland (base privacy pools)",
   "scripts": {
     "assignrole:sepolia": "bash -c 'source .env && forge script script/Entrypoint.s.sol:AssignRole --account $SEPOLIA_DEPLOYER_NAME --rpc-url $SEPOLIA_RPC -vv $0'",
     "build": "forge build",

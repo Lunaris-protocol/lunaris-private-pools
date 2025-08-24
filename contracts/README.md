@@ -4,32 +4,6 @@ This package contains the smart contracts for the Privacy Pools protocol with **
 
 ## 📁 Directory Structure
 
-```
-contracts/
-├── src/
-│   ├── contracts/
-│   │   ├── hybrid/              # 🔥 HYBRID SYSTEM CONTRACTS
-│   │   │   ├── HybridOrchestrator.sol
-│   │   │   ├── PrivacyPoolHybrid.sol
-│   │   │   ├── EncryptedERCHybrid.sol
-│   │   │   └── types/Types.sol
-│   │   ├── implementations/     # Privacy Pool implementations
-│   │   ├── lib/                 # Utility libraries
-│   │   ├── verifiers/           # ZK-SNARK verifiers
-│   │   └── Entrypoint.sol       # Main entry contract
-│   └── interfaces/              # Contract interfaces
-├── script/
-│   └── hybrid/                  # 🔥 HYBRID DEPLOYMENT SCRIPTS
-│       ├── DeployWithConfig.s.sol
-│       ├── DeployHybrid.s.sol
-│       ├── Interact.s.sol
-│       └── deploy.config.example.json
-├── test/
-│   └── hybrid/                  # 🔥 HYBRID TESTS
-│       └── HybridSystemTests.sol
-└── foundry.toml                 # Build configuration
-```
-
 ## 🚀 Quick Commands
 
 ### Testing
