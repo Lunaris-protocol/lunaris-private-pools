@@ -106,11 +106,17 @@ The Lunaris Protocol introduces **SimpleHybridPool** - an enhanced Privacy Pool 
 **Hybrid Integration** (`src/contracts/hybrid/`)
 
 - `SimpleHybridPool.sol` - **NEW**: Extends PrivacyPool with direct hybrid functionality
+
   - `hybridDeposit()` - Performs deposit + direct EERC pool minting via `depositPool()`
   - `hybridWithdraw()` - Performs withdrawal + direct EERC burning via `privateBurn()`
   - `setHybridEnabled()` - Toggle hybrid mode per pool
   - Direct integration eliminates intermediary contracts
   - Maintains 100% backward compatibility
+
+- `HybridPoolController.sol` - **ALTERNATIVE**: Separate controller for modular architecture
+  - Coordinate Privacy Pool operations externally
+  - Option for cases requiring contract separation
+  - Simpler integration for existing systems
 
 **Encrypted ERC System** (`src/contracts/encrypted-erc/`)
 
@@ -185,15 +191,15 @@ graph TB
         end
 
         subgraph "EncryptedERC Layer"
-            SHP -.->|depositPool()| EERC[EncryptedERC]
+            SHP -.-> EERC[EncryptedERC]
             EERC --> EB[Encrypted Balances]
             EERC --> R[Registrar]
         end
 
         subgraph "NEW: Direct Integration"
             SHP --> HE[Hybrid Engine]
-            HE -.->|Atomic Operations| PP
-            HE -.->|Atomic Operations| EERC
+            HE -.-> PP
+            HE -.-> EERC
         end
     end
 
@@ -260,15 +266,15 @@ flowchart TD
     subgraph "User Journey: Two Worlds United"
         A[User wants Privacy + Utility] --> B{Choose Operation}
 
-        B -->|Deposit| C[hybridDeposit()]
-        B -->|Transfer| D[privateTransfer()]
-        B -->|Withdraw| E[hybridWithdraw()]
+        B -->|Deposit| C[Hybrid Deposit]
+        B -->|Transfer| D[Private Transfer]
+        B -->|Withdraw| E[Hybrid Withdraw]
 
-        subgraph "NEW: hybridDeposit() Flow"
+        subgraph "NEW: Hybrid Deposit Flow"
             C --> C1[Privacy Pool: Create Commitment]
             C1 --> C2[Store ERC20 in Pool]
             C2 --> C3{Hybrid Enabled?}
-            C3 -->|Yes| C4[NEW: depositPool()]
+            C3 -->|Yes| C4[NEW: depositPool Function]
             C4 --> C5[EncryptedERC: Mint Private Tokens]
             C5 --> C6[User gets: Commitment + Encrypted Tokens]
         end
@@ -279,9 +285,9 @@ flowchart TD
             D2 --> D3[Complete Privacy]
         end
 
-        subgraph "NEW: hybridWithdraw() Flow"
+        subgraph "NEW: Hybrid Withdraw Flow"
             E --> E1[Verify Privacy Pool Proof]
-            E1 --> E2[NEW: privateBurn() from Pool]
+            E1 --> E2[NEW: privateBurn from Pool]
             E2 --> E3[Burn Encrypted Tokens]
             E3 --> E4[Withdraw ERC20 from Pool]
             E4 --> E5[User gets: Clean ERC20 Tokens]
@@ -300,20 +306,20 @@ flowchart TD
 classDiagram
     class SimpleHybridPool {
         <<NEW>>
-        +hybridDeposit() 🔥
-        +hybridWithdraw() 🔥
-        +setHybridEnabled() 🔥
+        +hybridDeposit() NEW
+        +hybridWithdraw() NEW
+        +setHybridEnabled() NEW
         -_coordinateDeposit()
         -_coordinateWithdraw()
     }
 
     class EncryptedERC {
         <<ENHANCED>>
-        +depositPool() ⭐ NEW
+        +depositPool() NEW
         +privateMint()
         +privateBurn()
         +privateTransfer()
-        -poolAddress immutable ⭐ NEW
+        -poolAddress immutable
     }
 
     class PrivacyPool {
@@ -323,11 +329,11 @@ classDiagram
     }
 
     SimpleHybridPool --|> PrivacyPool : extends
-    SimpleHybridPool ..> EncryptedERC : coordinates via depositPool()
-    EncryptedERC ..> SimpleHybridPool : authorized pool access
+    SimpleHybridPool ..> EncryptedERC : coordinates
+    EncryptedERC ..> SimpleHybridPool : authorized access
 
-    note for SimpleHybridPool "NEW: Direct hybrid integration\nEliminated external relayers\nAtomic operations"
-    note for EncryptedERC "NEW: depositPool() function\nAllows authorized pools to mint\nDirect integration capability"
+    note for SimpleHybridPool "NEW: Direct hybrid integration\\nEliminated external relayers\\nAtomic operations"
+    note for EncryptedERC "NEW: depositPool() function\\nAllows authorized pools to mint\\nDirect integration capability"
 ```
 
 ### Integration Value Proposition
@@ -367,7 +373,7 @@ sequenceDiagram
     participant EERC as EncryptedERC
     participant MT as Merkle Tree
 
-    Note over U,MT: NEW: depositPool() Integration
+    Note over U,MT: NEW depositPool Integration
 
     U->>SHP: hybridDeposit(amount, precommitment, amountPCT)
 
@@ -380,18 +386,18 @@ sequenceDiagram
     end
 
     rect rgb(248, 255, 248)
-        Note over SHP,EERC: NEW: Direct EncryptedERC Integration
+        Note over SHP,EERC: NEW Direct EncryptedERC Integration
         SHP->>SHP: approve(EncryptedERC, amount)
-        SHP->>EERC: depositPool(amount, asset, amountPCT) ⭐ NEW
+        SHP->>EERC: depositPool(amount, asset, amountPCT) NEW FUNCTION
         EERC->>EERC: verifyPoolAuthorization()
         EERC->>EERC: transferFrom(pool, this, amount)
         EERC->>EERC: mintEncryptedTokens(user, encryptedAmount)
         EERC-->>SHP: mint successful
     end
 
-    SHP-->>U: Hybrid deposit complete: Privacy + Encrypted tokens
+    SHP-->>U: Hybrid deposit complete
 
-    Note over U,MT: Result: User has both privacy commitment AND encrypted tokens
+    Note over U,MT: Result User has both privacy commitment AND encrypted tokens
 ```
 
 ## Technical Specifications
