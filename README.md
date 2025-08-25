@@ -1,8 +1,8 @@
-<div align="center">
-  <img src="images/logo.svg" alt="Lunaris Logo" width="400"/>
-</div>
-
 # Lunaris Protocol - Privacy Pools Hybrid System
+
+<div align="center">
+  <img src="images/iso-logo.svg" alt="Lunaris ISO Logo" width="200"/>
+</div>
 
 Professional implementation of the **Lunaris Privacy Protocol** - a revolutionary dual-layer privacy solution combining commitment-based mixing with encrypted balance management, featuring direct hybrid integration for unprecedented user experience.
 
@@ -24,19 +24,39 @@ When users interact with Lunaris Protocol, they benefit from:
 
 ```
 privacy-pools-core/packages/
-├── circuits/                    # Zero-knowledge circuits
-├── contracts/                   # Smart contracts (main package)
-│   ├── src/contracts/hybrid/    # HYBRID INTEGRATION CONTRACTS
-│   ├── src/contracts/encrypted-erc/ # ENCRYPTED ERC SYSTEM
-│   ├── script/                  # DEPLOYMENT SCRIPTS
-│   ├── test/unit/hybrid/        # COMPREHENSIVE HYBRID TESTS
-│   ├── test/unit/encrypted-erc/ # ENCRYPTED ERC UNIT TESTS
-│   └── foundry.toml             # Foundry configuration
-├── relayer/                     # Transaction relayer service
-└── sdk/                        # TypeScript SDK
+├── contracts/                           # Smart contracts (main package)
+│   ├── src/
+│   │   ├── interfaces/                  # CONSOLIDATED INTERFACES
+│   │   │   ├── core/                    # Core protocol interfaces
+│   │   │   ├── encrypted/               # Encrypted ERC interfaces
+│   │   │   ├── verifiers/               # ZK proof verifier interfaces
+│   │   │   └── external/                # External protocol interfaces
+│   │   ├── types/                       # UNIFIED TYPE DEFINITIONS
+│   │   ├── errors/                      # CENTRALIZED ERROR DEFINITIONS
+│   │   ├── libraries/                   # CONSOLIDATED LIBRARIES
+│   │   └── contracts/
+│   │       ├── hybrid/                  # HYBRID INTEGRATION CONTRACTS
+│   │       ├── encrypted-erc/           # ENCRYPTED ERC SYSTEM
+│   │       ├── implementations/         # Privacy Pool implementations
+│   │       └── verifiers/               # ZK proof verifiers
+│   ├── script/                         # PROFESSIONAL DEPLOYMENT SCRIPTS
+│   ├── test/                           # COMPREHENSIVE TEST SUITE
+│   │   ├── unit/
+│   │   │   ├── core/                   # Core contract tests
+│   │   │   ├── encrypted/              # Encrypted ERC tests
+│   │   │   └── hybrid/                 # Hybrid system tests
+│   │   └── helpers/                    # Test utilities
+│   └── foundry.toml                    # Foundry configuration
+├── circuits/                           # Zero-knowledge circuits
+├── relayer/                           # Transaction relayer service
+└── sdk/                              # TypeScript SDK
 ```
 
-## Hybrid System Architecture
+## Core Innovations
+
+### Hybrid Pool System Architecture
+
+The Lunaris Protocol introduces **SimpleHybridPool** - an enhanced Privacy Pool that directly integrates with the Encrypted ERC system:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -60,32 +80,12 @@ privacy-pools-core/packages/
 │  │  • Atomic privateBurn() on withdrawals                    │ │
 │  │  • No external relayers or intermediaries                 │ │
 │  └─────────────────────────────────────────────────────────────┘ │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │               TRANSACTION RELAYER (OPTIONAL)                │ │
-│  │  • Gasless transactions for Privacy Pool operations       │ │
-│  │  • Independent of hybrid system                           │ │
-│  │  • Enhanced privacy through indirection                   │ │
-│  └─────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Core Components
+### Enhanced EncryptedERC System
 
-### Smart Contracts (`contracts/src/contracts/hybrid/`)
-
-**SimpleHybridPool.sol**
-
-- Extends standard PrivacyPool with direct hybrid functionality
-- `hybridDeposit()` - Performs deposit + direct EERC pool minting via `depositPool()`
-- `hybridWithdraw()` - Performs withdrawal + direct EERC burning via `privateBurn()`
-- `setHybridEnabled()` - Toggle hybrid mode per pool
-- Direct integration eliminates intermediary contracts
-- Maintains 100% backward compatibility
-
-### Enhanced EncryptedERC System (`contracts/src/contracts/encrypted-erc/`)
-
-**EncryptedERC.sol** _(Enhanced)_
+**EncryptedERC.sol** now includes:
 
 - **NEW**: `depositPool()` - Direct minting for hybrid pool integration
 - **NEW**: Pool address management for hybrid deposits
@@ -93,55 +93,129 @@ privacy-pools-core/packages/
 - Maintains all existing functionality: `privateMint()`, `privateBurn()`, `privateTransfer()`
 - **REMOVED**: External relayer dependency
 
-**Core EncryptedERC Components**
+## Key Components
 
+### Smart Contracts
+
+**Core Infrastructure** (`src/contracts/`)
+
+- `Entrypoint.sol` - Main protocol entry point with role-based access control
+- `State.sol` - Merkle tree state management for commitments
+- `PrivacyPool.sol` - Base privacy pool implementation
+
+**Hybrid Integration** (`src/contracts/hybrid/`)
+
+- `SimpleHybridPool.sol` - **NEW**: Extends PrivacyPool with direct hybrid functionality
+  - `hybridDeposit()` - Performs deposit + direct EERC pool minting via `depositPool()`
+  - `hybridWithdraw()` - Performs withdrawal + direct EERC burning via `privateBurn()`
+  - `setHybridEnabled()` - Toggle hybrid mode per pool
+  - Direct integration eliminates intermediary contracts
+  - Maintains 100% backward compatibility
+
+**Encrypted ERC System** (`src/contracts/encrypted-erc/`)
+
+- `EncryptedERC.sol` - **ENHANCED**: Core encrypted token contract
+  - **NEW**: `depositPool()` - Direct minting for authorized pools
+  - **NEW**: Pool authorization system
+  - Enhanced metadata support with `EncryptedMetadata`
+  - Streamlined function signatures (removed allowance system)
 - `EncryptedUserBalances.sol` - Encrypted balance management
 - `Registrar.sol` - User registration and key management
 - `TokenTracker.sol` - Token metadata and tracking
 
-**Verifiers**
+### Consolidated Architecture
 
-- `MintVerifier.sol` - Mint operation proof verification
-- `BurnVerifier.sol` - Burn operation proof verification
-- `TransferVerifier.sol` - Transfer operation proof verification
-- `WithdrawVerifier.sol` - Withdrawal operation proof verification
+**Interfaces** (`src/interfaces/`)
 
-### Zero-Knowledge Circuits (`circuits/`)
+- **Core** (`core/`): `IEntrypoint`, `IPrivacyPool`, `IState`
+- **Encrypted** (`encrypted/`): `IRegistrar`
+- **Verifiers** (`verifiers/`): All ZK proof verifier interfaces
+- **External** (`external/`): `ICreateX`
 
-**commitment.circom**
+**Type System** (`src/types/Types.sol`)
 
-- Generates commitments for Privacy Pool deposits
-- Uses Poseidon hash function for efficiency
-- Supports precommitment hashes for enhanced privacy
+- Unified type definitions for all protocol components
+- Consolidated structs: `Point`, `EGCT`, `ProofPoints`, `MintProof`, etc.
 
-**merkleTree.circom**
+**Libraries** (`src/libraries/`)
 
-- Merkle tree operations for Privacy Pool state
-- Efficient inclusion/exclusion proofs
-- Optimized for gas cost and verification speed
+- `ProofLib.sol` - ZK proof helper functions
+- `BabyJubJub.sol` - Elliptic curve operations
+- `Constants.sol` - Global protocol constants
 
-**withdraw.circom**
+## Integration Architecture
 
-- Withdrawal proof generation for Privacy Pool
-- Validates commitment ownership and nullifier uniqueness
-- Ensures proper withdrawal authorization
+### System Evolution: Two Worlds Become One
+
+#### Before: Separate Systems
+
+```mermaid
+graph TB
+    subgraph "Privacy Pools World"
+        U1[User] --> E1[Entrypoint]
+        E1 --> PP[Privacy Pool]
+        PP --> MT[Merkle Tree State]
+        PP --> C[Commitments]
+    end
+
+    subgraph "EncryptedERC World"
+        U2[User] --> EERC[EncryptedERC]
+        EERC --> EB[Encrypted Balances]
+        EERC --> R[Registrar]
+    end
+
+    style U1 fill:#e1f5fe
+    style U2 fill:#e8f5e8
+    style PP fill:#fff3e0
+    style EERC fill:#f3e5f5
+```
+
+#### After: Unified Hybrid System
+
+```mermaid
+graph TB
+    subgraph "Unified Lunaris Protocol"
+        U[User] --> E[Entrypoint]
+        E --> SHP[SimpleHybridPool]
+
+        subgraph "Privacy Pool Layer"
+            SHP --> PP[Privacy Pool Base]
+            PP --> MT[Merkle Tree State]
+            PP --> C[Commitments]
+        end
+
+        subgraph "EncryptedERC Layer"
+            SHP -.->|depositPool()| EERC[EncryptedERC]
+            EERC --> EB[Encrypted Balances]
+            EERC --> R[Registrar]
+        end
+
+        subgraph "NEW: Direct Integration"
+            SHP --> HE[Hybrid Engine]
+            HE -.->|Atomic Operations| PP
+            HE -.->|Atomic Operations| EERC
+        end
+    end
+
+    style U fill:#e1f5fe
+    style SHP fill:#ff8a65
+    style HE fill:#ffab40
+    style PP fill:#fff3e0
+    style EERC fill:#f3e5f5
+```
 
 ## User Flows
 
-### Hybrid Deposit Flow (Direct Integration)
+### NEW: Hybrid Deposit Flow (Atomic Integration)
 
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant S as SDK
     participant E as Entrypoint
     participant HP as SimpleHybridPool
     participant EERC as EncryptedERC
-    participant V as Verifiers
 
-    U->>S: Initiate hybrid deposit
-    S->>S: Generate encrypted amount PCT
-    S->>E: hybridDeposit(user, amount, precommitment, amountPCT)
+    U->>E: hybridDeposit(amount, precommitment, amountPCT)
     E->>HP: Execute hybrid deposit
     HP->>HP: Create Privacy Pool commitment
     HP->>HP: Store ERC20 tokens in pool
@@ -150,182 +224,185 @@ sequenceDiagram
     HP->>EERC: depositPool(amount, asset, amountPCT)
     EERC->>EERC: Transfer tokens from pool to self
     EERC->>EERC: Convert to encrypted tokens
-    EERC->>V: Verify mint proof (implicit)
-    V-->>EERC: Proof valid
     EERC-->>HP: Mint successful
-    HP->>HP: Emit HybridDeposit event
     HP-->>E: Return commitment hash
-    E-->>S: Deposit complete
-    S-->>U: Both systems updated atomically
+    E-->>U: Both systems updated atomically
 ```
 
-**Process:**
-
-1. User initiates hybrid deposit through SDK with encrypted amount PCT
-2. SimpleHybridPool creates Privacy Pool commitment and stores tokens
-3. If hybrid enabled, pool directly calls `EncryptedERC.depositPool()`
-4. EncryptedERC receives tokens from pool and mints equivalent encrypted tokens
-5. User receives both commitment and encrypted tokens **in single transaction**
-
-### Private Transfer Flow (Unchanged)
-
-```mermaid
-sequenceDiagram
-    participant A as Alice
-    participant EERC as EncryptedERC
-    participant B as Bob
-
-    A->>EERC: privateTransfer(encryptedAmount, recipient)
-    EERC->>EERC: Update encrypted balances
-    EERC->>EERC: Verify balance consistency
-    EERC-->>B: Encrypted tokens received
-    Note over A,B: No public trace of transfer
-```
-
-**Privacy Benefits:**
-
-- Transfer amounts are encrypted
-- User balances are encrypted
-- Only sender and receiver know transaction details
-- No public blockchain trace
-
-### Hybrid Withdrawal Flow (Direct Integration)
+### Hybrid Withdrawal Flow
 
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant S as SDK
     participant E as Entrypoint
     participant HP as SimpleHybridPool
     participant EERC as EncryptedERC
     participant V as Verifiers
 
-    U->>S: Initiate hybrid withdrawal
-    S->>S: Generate withdrawal + burn proofs
-    S->>E: hybridWithdraw(withdrawal, poolProof, burnProof, balancePCT)
+    U->>E: hybridWithdraw(withdrawal, poolProof, burnProof, balancePCT)
     E->>HP: Execute hybrid withdrawal
     HP->>V: Verify Privacy Pool withdrawal proof
     V-->>HP: Pool proof valid
-    Note over HP: Hybrid operations:
     HP->>EERC: privateBurn(burnProof, balancePCT)
     EERC->>V: Verify burn proof
     V-->>EERC: Burn proof valid
     EERC-->>HP: Burn successful
     HP->>HP: Process Privacy Pool withdrawal
-    HP->>HP: Update nullifiers and commitments
     HP->>U: Transfer ERC20 tokens from pool
-    HP->>HP: Emit HybridWithdraw event
     HP-->>E: Withdrawal complete
-    E-->>S: Success
-    S-->>U: Both systems updated atomically
+    E-->>U: Both systems updated atomically
 ```
 
-**Process:**
+### NEW Functions Integration Flow
 
-1. User provides ZK proofs for both Privacy Pool and EncryptedERC
-2. SimpleHybridPool validates Privacy Pool withdrawal proof
-3. Pool directly calls `EncryptedERC.privateBurn()` with burn proof
-4. EncryptedERC validates and burns user's encrypted tokens
-5. Privacy Pool processes withdrawal and returns ERC20 tokens **atomically**
+```mermaid
+flowchart TD
+    subgraph "User Journey: Two Worlds United"
+        A[User wants Privacy + Utility] --> B{Choose Operation}
 
-## Privacy Comparison
+        B -->|Deposit| C[hybridDeposit()]
+        B -->|Transfer| D[privateTransfer()]
+        B -->|Withdraw| E[hybridWithdraw()]
 
-### Privacy Levels by System
+        subgraph "NEW: hybridDeposit() Flow"
+            C --> C1[Privacy Pool: Create Commitment]
+            C1 --> C2[Store ERC20 in Pool]
+            C2 --> C3{Hybrid Enabled?}
+            C3 -->|Yes| C4[NEW: depositPool()]
+            C4 --> C5[EncryptedERC: Mint Private Tokens]
+            C5 --> C6[User gets: Commitment + Encrypted Tokens]
+        end
 
-| Privacy Aspect              | Standard ERC20 | Privacy Pool Only | EERC Only | **Hybrid System** |
-| --------------------------- | -------------- | ----------------- | --------- | ----------------- |
-| **Transfer Amount**         | Public         | Public            | Private   | **Private**       |
-| **Sender Identity**         | Public         | Public            | Private   | **Private**       |
-| **Recipient Identity**      | Public         | Public            | Private   | **Private**       |
-| **Balance Privacy**         | Public         | Public            | Private   | **Private**       |
-| **Deposit/Withdrawal Link** | Public         | Private           | Public    | **Private**       |
-| **Transaction History**     | Public         | Public            | Private   | **Private**       |
-| **Regulatory Compliance**   | Yes            | Yes               | No        | **Yes**           |
-| **Integration Complexity**  | Low            | Medium            | High      | **Medium**        |
+        subgraph "Enhanced: Private Operations"
+            D --> D1[Use Encrypted Tokens]
+            D1 --> D2[Zero-Knowledge Transfers]
+            D2 --> D3[Complete Privacy]
+        end
 
-### Visual Privacy Comparison
+        subgraph "NEW: hybridWithdraw() Flow"
+            E --> E1[Verify Privacy Pool Proof]
+            E1 --> E2[NEW: privateBurn() from Pool]
+            E2 --> E3[Burn Encrypted Tokens]
+            E3 --> E4[Withdraw ERC20 from Pool]
+            E4 --> E5[User gets: Clean ERC20 Tokens]
+        end
+    end
 
+    style C4 fill:#ffab40
+    style E2 fill:#ffab40
+    style C6 fill:#c8e6c9
+    style E5 fill:#c8e6c9
 ```
-STANDARD ERC20:
-┌─────────────────────────────────────────────────────────────────┐
-│ PUBLIC INFORMATION:                                             │
-│ • Transfer amounts                                              │
-│ • Sender addresses                                              │
-│ • Recipient addresses                                           │
-│ • Transaction timestamps                                        │
-│ • Balance history                                               │
-│ • Transaction graph                                             │
-│                                                                 │
-│ PRIVATE INFORMATION:                                            │
-│ • Nothing                                                       │
-└─────────────────────────────────────────────────────────────────┘
 
-PRIVACY POOL ONLY:
-┌─────────────────────────────────────────────────────────────────┐
-│ PUBLIC INFORMATION:                                             │
-│ • Deposit amounts                                               │
-│ • Withdrawal amounts                                            │
-│ • Transaction timestamps                                        │
-│ • Pool statistics                                               │
-│                                                                 │
-│ PRIVATE INFORMATION:                                            │
-│ • Connection between deposits and withdrawals                  │
-│ • User identity in pool                                        │
-└─────────────────────────────────────────────────────────────────┘
+### Technical Integration: NEW Functions
 
-ENCRYPTED ERC ONLY:
-┌─────────────────────────────────────────────────────────────────┐
-│ PUBLIC INFORMATION:                                             │
-│ • Mint/burn events (without amounts)                           │
-│ • Contract interactions                                         │
-│                                                                 │
-│ PRIVATE INFORMATION:                                            │
-│ • All transfer amounts                                          │
-│ • All sender/recipient addresses                                │
-│ • All balance information                                       │
-│ • Complete transaction history                                  │
-│ • Limited regulatory compliance                                 │
-└─────────────────────────────────────────────────────────────────┘
+```mermaid
+classDiagram
+    class SimpleHybridPool {
+        <<NEW>>
+        +hybridDeposit() 🔥
+        +hybridWithdraw() 🔥
+        +setHybridEnabled() 🔥
+        -_coordinateDeposit()
+        -_coordinateWithdraw()
+    }
 
-HYBRID SYSTEM (LUNARIS SOLUTION):
-┌─────────────────────────────────────────────────────────────────┐
-│ PUBLIC INFORMATION:                                             │
-│ • Deposit events (amounts, timestamps)                         │
-│ • Withdrawal events (amounts, timestamps)                      │
-│ • Pool statistics                                               │
-│ • Regulatory compliance data                                   │
-│ • System coordination events                                   │
-│                                                                 │
-│ PRIVATE INFORMATION:                                            │
-│ • All transfer amounts (post-deposit)                          │
-│ • All sender/recipient addresses (transfers)                   │
-│ • All balance information                                       │
-│ • Connection between deposits and withdrawals                  │
-│ • Complete encrypted transaction history                       │
-│ • User identity correlation across systems                     │
-│ • Cross-system operation linkage                               │
-└─────────────────────────────────────────────────────────────────┘
+    class EncryptedERC {
+        <<ENHANCED>>
+        +depositPool() ⭐ NEW
+        +privateMint()
+        +privateBurn()
+        +privateTransfer()
+        -poolAddress immutable ⭐ NEW
+    }
+
+    class PrivacyPool {
+        +deposit()
+        +withdraw()
+        +ragequit()
+    }
+
+    SimpleHybridPool --|> PrivacyPool : extends
+    SimpleHybridPool ..> EncryptedERC : coordinates via depositPool()
+    EncryptedERC ..> SimpleHybridPool : authorized pool access
+
+    note for SimpleHybridPool "NEW: Direct hybrid integration\nEliminated external relayers\nAtomic operations"
+    note for EncryptedERC "NEW: depositPool() function\nAllows authorized pools to mint\nDirect integration capability"
+```
+
+### Integration Value Proposition
+
+```mermaid
+graph LR
+    subgraph "BEFORE: Fragmented Experience"
+        A1[User] --> B1[Privacy Pool]
+        A1 --> B2[EncryptedERC]
+        B1 -.->|Manual coordination| B2
+        B1 --> C1[Only mixing privacy]
+        B2 --> C2[Only transfer privacy]
+    end
+
+    subgraph "AFTER: Unified Privacy Platform"
+        A2[User] --> B3[SimpleHybridPool]
+        B3 --> C3[Mixing + Transfer Privacy]
+        B3 --> C4[Atomic Operations]
+        B3 --> C5[Single Transaction]
+        B3 --> C6[No External Relayers]
+    end
+
+    style B3 fill:#ff8a65
+    style C3 fill:#c8e6c9
+    style C4 fill:#c8e6c9
+    style C5 fill:#c8e6c9
+    style C6 fill:#c8e6c9
+```
+
+### NEW Functions Detailed Operation
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant SHP as SimpleHybridPool
+    participant PP as PrivacyPool Base
+    participant EERC as EncryptedERC
+    participant MT as Merkle Tree
+
+    Note over U,MT: NEW: depositPool() Integration
+
+    U->>SHP: hybridDeposit(amount, precommitment, amountPCT)
+
+    rect rgb(255, 248, 220)
+        Note over SHP: Privacy Pool Operations
+        SHP->>PP: deposit(user, amount, precommitment)
+        PP->>MT: insertCommitment()
+        MT-->>PP: commitment hash
+        PP-->>SHP: commitment created
+    end
+
+    rect rgb(248, 255, 248)
+        Note over SHP,EERC: NEW: Direct EncryptedERC Integration
+        SHP->>SHP: approve(EncryptedERC, amount)
+        SHP->>EERC: depositPool(amount, asset, amountPCT) ⭐ NEW
+        EERC->>EERC: verifyPoolAuthorization()
+        EERC->>EERC: transferFrom(pool, this, amount)
+        EERC->>EERC: mintEncryptedTokens(user, encryptedAmount)
+        EERC-->>SHP: mint successful
+    end
+
+    SHP-->>U: Hybrid deposit complete: Privacy + Encrypted tokens
+
+    Note over U,MT: Result: User has both privacy commitment AND encrypted tokens
 ```
 
 ## Technical Specifications
 
-### Gas Cost Analysis
+### Gas Optimization
 
 | Operation | Standard Privacy Pool | Hybrid System | Optimization | User Benefit |
 | --------- | --------------------- | ------------- | ------------ | ------------ |
 | Deposit   | ~150k gas             | ~280k gas     | Direct call  | Single tx    |
 | Withdraw  | ~300k gas             | ~580k gas     | No relayer   | Atomic ops   |
 | Transfer  | N/A                   | ~150k gas     | Pure EERC    | Private      |
-| Mint      | N/A                   | ~200k gas     | Via deposit  | Automatic    |
-
-**Cost Breakdown:**
-
-- Privacy Pool operations: ~150k-300k gas
-- EncryptedERC operations: ~130k-280k gas
-- Hybrid coordination: ~30k gas
-- Storage optimizations: ~20k gas saved
-- **Direct integration: ~50k gas saved (no relayer)**
-- **Atomic guarantees: Priceless** ✨
 
 ### Architecture Improvements
 
@@ -347,278 +424,80 @@ BENEFITS:
 └── Better UX (single transaction for hybrid ops)
 ```
 
-### Security Model
-
-```
-TRUST ASSUMPTIONS:
-├── ZK Verifiers (trusted circuits)
-├── Privacy Pool Entrypoint (trusted entry)
-├── EncryptedERC Registrar (trusted registration)
-├── SimpleHybridPool (privileged coordinator)
-└── Direct Integration (no external relayers)
-
-SECURITY GUARANTEES:
-├── Atomic Operations (all-or-nothing hybrid operations)
-├── Balance Consistency (enforced by direct calls)
-├── Proof Validity (dual verification systems)
-├── Authorization Chains (proper access control)
-└── Integration Integrity (no intermediary manipulation)
-```
-
-### Attack Vectors & Mitigations
-
-| Attack Vector               | Previous Risk | New Mitigation                            |
-| --------------------------- | ------------- | ----------------------------------------- |
-| **Invalid Proofs**          | Medium        | Dual verification in single transaction   |
-| **State Desynchronization** | High          | Atomic operations eliminate async issues  |
-| **Relayer Manipulation**    | High          | **ELIMINATED** - No external relayers     |
-| **Gas Griefing**            | Medium        | Direct calls reduce gas complexity        |
-| **Reentrancy**              | Medium        | Reentrancy guards + atomic state updates  |
-| **MEV Attacks**             | High          | Single transaction eliminates MEV windows |
-
-## Quick Start
+## Development Workflow
 
 ### Prerequisites
 
 - Node.js 18+
 - Foundry (for contract development)
 - Yarn package manager
-- Understanding of ZK proofs and Privacy Pools
 
 ### Installation
 
 ```bash
-# Clone the Lunaris Protocol repository
+# Clone the repository
 git clone https://github.com/Lunaris-protocol/lunaris-privacy-pools.git
 cd lunaris-privacy-pools
-```
 
-#### Root Level Setup
-
-```bash
 # Install workspace dependencies
 yarn install
 
-# Build all packages
-yarn build
-```
-
-#### Contracts Package Setup
-
-```bash
-# Navigate to contracts directory
+# Navigate to contracts
 cd packages/contracts
 
-# Install Node.js dependencies for contracts package
-yarn install
-
-# Install Foundry dependencies (submodules)
+# Install Foundry dependencies
 forge install
 
-# Initialize git submodules if needed
-git submodule update --init --recursive
-
-# Verify Foundry installation
-forge --version
-```
-
-### Development Workflow
-
-#### Building and Compilation
-
-```bash
-# Navigate to contracts directory (if not already there)
-cd packages/contracts
-
-# Clean previous builds
-forge clean
-
-# Compile all contracts
+# Compile contracts
 forge build
-
-# Compile with optimization
-forge build --optimize --optimizer-runs 200
-
-# Check contract sizes
-forge build --sizes
 ```
 
-#### Testing - Unit Tests
+### Testing
 
 ```bash
-# Run all unit tests
+# Run all tests
 forge test
 
-# Run with verbosity for detailed output
+# Run with detailed output
 forge test -vv
 
-# Run specific test contracts
-forge test --match-contract "UnitConstructor" -vv
-forge test --match-contract "UnitHybridDeposit" -vvv
-
-# Run hybrid system tests specifically
+# Run specific test suites
+forge test --match-contract "UnitHybrid" -vvv
+forge test --match-path "**/encrypted/*" -vv
 forge test --match-path "**/hybrid/*" -vvv
 
-# Run EncryptedERC tests
-forge test --match-path "**/encrypted-erc/*" -vv
-
-# Run core Privacy Pool tests
-forge test --match-path "**/core/*" -vv
-```
-
-#### Testing - Advanced Options
-
-```bash
-# Test with gas reporting
-forge test --gas-report
-
-# Test with coverage
+# Generate coverage report
 forge coverage
-
-# Specific coverage for hybrid system
-forge coverage --match-path "**/hybrid/*"
-
-# Fuzz testing with custom runs
-forge test --fuzz-runs 1000 --match-test "*Fuzz*"
-
-# Test specific functions
-forge test --match-test "test_HybridDeposit*" -vvv
-
-# Test in fork mode (if needed)
-forge test --fork-url $RPC_URL --match-contract "Integration*"
 ```
 
-#### Development Tools
+### Deployment
+
+#### Local Development
 
 ```bash
-# Format code
-forge fmt
-
-# Static analysis with Slither (install separately)
-slither .
-
-# Generate documentation
-forge doc
-
-# Verify contract bytecode
-forge verify-contract <address> <contract> --chain <chain-id>
-
-# Deploy locally with Anvil
+# Start local node
 anvil --port 8545
 
-# Check remappings
-forge remappings
-
-# Clean build artifacts (recommended before fresh builds)
-forge clean
-```
-
-#### Quick Start Commands
-
-```bash
-# Complete setup from scratch
-cd packages/contracts
-yarn install
-forge install
-forge clean
-forge build
-
-# Run comprehensive test suite
-forge test --gas-report -vv
-
-# Deploy locally for testing
-anvil &
-export PRIVATE_KEY=""
-export RPC_URL="http://localhost:8545"
-forge script script/DeployHybridSystem.s.sol:DeployHybridSystem \
-  --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast -vvv
-
-# Test deployed system
-forge test --fork-url $RPC_URL --match-path "**/integration/*" -vv
-```
-
-### Local Development Deployment
-
-#### Step 1: Start Local Node
-
-```bash
-# In terminal 1 - Start Anvil local node
-anvil --port 8545 --accounts 10 --balance 1000
-
-# Note the private key from output for PRIVATE_KEY
-# Example: 0x11231f2ff80
-```
-
-#### Step 2: Deploy Hybrid System
-
-```bash
-# In terminal 2 - Navigate to contracts directory
-cd packages/contracts
-
-# Set environment variables for local deployment
-export PRIVATE_KEY=""
-export RPC_URL="http://localhost:8545"
-
-# Deploy complete Lunaris Hybrid System
-forge script script/DeployHybridSystem.s.sol:DeployHybridSystem \
-  --rpc-url $RPC_URL \
-  --private-key $PRIVATE_KEY \
-  --broadcast \
-  -vvv
-
-# The script will output all deployed contract addresses
-```
-
-#### Step 3: Verify Local Deployment
-
-```bash
-# Test the deployed contracts
-forge test --fork-url $RPC_URL --match-contract "Integration*" -vv
-
-# Check contract interactions
-cast call <HYBRID_POOL_ADDRESS> "hybridEnabled()" --rpc-url $RPC_URL
-```
-
-### Testnet Deployment
-
-#### Fuji (Avalanche Testnet)
-
-```bash
-# Set testnet environment variables
+# Set environment variables
 export PRIVATE_KEY="your_private_key"
-export RPC_URL="https://api.avax-test.network/ext/bc/C/rpc"
-export ETHERSCAN_API_KEY="your_snowtrace_api_key"
+export RPC_URL="http://localhost:8545"
+export OWNER_ADDRESS="your_owner_address"
+export POSTMAN_ADDRESS="your_postman_address"
+export DEPLOYER_ADDRESS="your_deployer_address"
 
-# Deploy to Fuji testnet
-forge script script/DeployHybridSystem.s.sol:DeployHybridSystem \
+# Deploy complete system
+forge script script/deploy/EthereumSepolia.s.sol:DeployEthereumSepolia \
   --rpc-url $RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast \
-  --verify \
-  --etherscan-api-key $ETHERSCAN_API_KEY \
   -vvv
-
-# Save deployment addresses to file
-forge script script/DeployHybridSystem.s.sol:DeployHybridSystem \
-  --rpc-url $RPC_URL \
-  --private-key $PRIVATE_KEY \
-  --broadcast \
-  --json > deployments/fuji.json
 ```
 
-### Production Deployment
-
-#### Avalanche Mainnet
+#### Production Deployment
 
 ```bash
-# Set production environment variables
-export PRIVATE_KEY="your_production_private_key"
-export RPC_URL="https://api.avax.network/ext/bc/C/rpc"
-export ETHERSCAN_API_KEY="your_snowtrace_api_key"
-export ENTRYPOINT_ADDRESS="0x..." # Real Privacy Pools Entrypoint
-
-# Deploy with verification and gas optimization
-forge script script/DeployHybridSystem.s.sol:DeployHybridSystem \
+# Deploy to mainnet with verification
+forge script script/deploy/EthereumMainnet.s.sol:DeployEthereumMainnet \
   --rpc-url $RPC_URL \
   --private-key $PRIVATE_KEY \
   --broadcast \
@@ -627,87 +506,7 @@ forge script script/DeployHybridSystem.s.sol:DeployHybridSystem \
   --optimize \
   --optimizer-runs 1000 \
   -vvv
-
-# Save production deployment
-forge script script/DeployHybridSystem.s.sol:DeployHybridSystem \
-  --rpc-url $RPC_URL \
-  --private-key $PRIVATE_KEY \
-  --broadcast \
-  --json > deployments/mainnet.json
 ```
-
-### Post-Deployment Configuration
-
-```bash
-# Enable hybrid mode on deployed pool
-cast send <HYBRID_POOL_ADDRESS> \
-  "setHybridEnabled(bool)" true \
-  --rpc-url $RPC_URL \
-  --private-key $PRIVATE_KEY
-
-# Register test user (for testnet)
-cast send <REGISTRAR_ADDRESS> \
-  "register(address)" <USER_ADDRESS> \
-  --rpc-url $RPC_URL \
-  --private-key $PRIVATE_KEY
-
-# Check system status
-cast call <HYBRID_POOL_ADDRESS> "hybridEnabled()" --rpc-url $RPC_URL
-cast call <ENCRYPTED_ERC_ADDRESS> "isAuditorKeySet()" --rpc-url $RPC_URL
-```
-
-## Testing Strategy
-
-### Test Architecture
-
-**Unit Tests** (`test/unit/`)
-
-```bash
-# Hybrid system tests
-forge test --match-path "**/hybrid/*" --gas-report
-
-# EncryptedERC tests
-forge test --match-path "**/encrypted-erc/*" --gas-report
-
-# Core Privacy Pool tests
-forge test --match-path "**/core/*" --gas-report
-```
-
-**Integration Tests** (`test/integration/`)
-
-```bash
-# End-to-end hybrid flows
-forge test --match-contract "*Integration*" -vvv
-
-# Multi-user scenarios
-forge test --match-test "*MultiUser*" -vvv
-
-# Cross-contract interactions
-forge test --match-test "*CrossContract*" -vvv
-```
-
-**Security Tests** (`test/invariants/`)
-
-```bash
-# Invariant testing
-forge test --match-path "**/invariants/*" -vvv
-
-# Fuzz testing
-forge test --fuzz-runs 10000 --match-test "*Fuzz*"
-
-# Attack vector testing
-forge test --match-test "*Attack*" -vvv
-```
-
-### Key Test Scenarios
-
-- **Atomic hybrid deposits**: Privacy Pool + EncryptedERC minting
-- **Atomic hybrid withdrawals**: Privacy Pool + EncryptedERC burning
-- **Hybrid mode toggling**: Enable/disable hybrid functionality
-- **Error handling**: Failed operations and rollback scenarios
-- **Gas optimization**: Efficient execution paths
-- **Security boundaries**: Access control and authorization
-- **Edge cases**: Boundary conditions and error states
 
 ## Integration Guide
 
@@ -760,26 +559,6 @@ CreateEncryptedERCParams memory params = CreateEncryptedERCParams({
 
 ## Configuration
 
-### System Parameters
-
-```solidity
-// SimpleHybridPool Configuration
-struct HybridConfig {
-  bool hybridEnabled;           // Hybrid operations enabled
-  address encryptedERC;         // EncryptedERC contract address
-  uint256 minDepositAmount;     // Minimum hybrid deposit
-  uint256 maxGasPrice;          // Gas price limit for operations
-}
-
-// EncryptedERC Configuration
-struct EncryptedERCConfig {
-  address poolAddress;          // Authorized hybrid pool
-  bool isConverter;             // Converter mode enabled
-  address registrar;            // User registrar contract
-  address[] verifiers;          // ZK proof verifiers
-}
-```
-
 ### Environment Variables
 
 ```bash
@@ -788,87 +567,105 @@ PRIVATE_KEY=your_deployer_private_key
 RPC_URL=your_rpc_endpoint
 ETHERSCAN_API_KEY=your_api_key
 
+# Addresses
+OWNER_ADDRESS=your_owner_address
+POSTMAN_ADDRESS=your_postman_address
+DEPLOYER_ADDRESS=your_deployer_address
+
 # Network Specific
-FUJI_RPC_URL=https://api.avax-test.network/ext/bc/C/rpc
-AVALANCHE_RPC_URL=https://api.avax.network/ext/bc/C/rpc
-POLYGON_RPC_URL=https://polygon-rpc.com
-ARBITRUM_RPC_URL=https://arb1.arbitrum.io/rpc
-
-# System Parameters
-MIN_DEPOSIT_AMOUNT=1000000000000000000  # 1 token minimum
-MAX_TREE_DEPTH=32                        # Maximum merkle tree depth
-DEFAULT_HYBRID_ENABLED=false             # Hybrid disabled by default
+ETHEREUM_SEPOLIA_RPC_URL=https://ethereum-sepolia.publicnode.com
+ETHEREUM_MAINNET_RPC_URL=https://ethereum.publicnode.com
+GNOSIS_CHIADO_RPC_URL=https://rpc.chiadochain.net
+GNOSIS_RPC_URL=https://rpc.gnosischain.com
 ```
 
-## Performance Optimization
-
-### Architectural Optimizations
+## Security Model
 
 ```
-1. DIRECT INTEGRATION
-   • Eliminated relayer contracts (-1 external call)
-   • Atomic operations (guaranteed consistency)
-   • Reduced transaction complexity
-   • Simplified error handling
+TRUST ASSUMPTIONS:
+├── ZK Verifiers (trusted circuits)
+├── Privacy Pool Entrypoint (trusted entry)
+├── EncryptedERC Registrar (trusted registration)
+├── SimpleHybridPool (privileged coordinator)
+└── Direct Integration (no external relayers)
 
-2. GAS EFFICIENCY
-   • Direct EncryptedERC.depositPool() calls
-   • Optimized storage operations
-   • Batch-friendly operations
-   • Minimal state changes
-
-3. SECURITY IMPROVEMENTS
-   • Fewer attack vectors (no relayer)
-   • Atomic operations (no partial states)
-   • Direct authorization chains
-   • Simplified trust model
-
-4. DEVELOPER EXPERIENCE
-   • Single contract deployment flow
-   • Clearer integration patterns
-   • Better error messages
-   • Comprehensive test coverage
+SECURITY GUARANTEES:
+├── Atomic Operations (all-or-nothing hybrid operations)
+├── Balance Consistency (enforced by direct calls)
+├── Proof Validity (dual verification systems)
+├── Authorization Chains (proper access control)
+└── Integration Integrity (no intermediary manipulation)
 ```
 
-### Gas Optimization Techniques
+## Performance Benchmarks
 
-```solidity
-// Optimized hybrid operations
-function hybridDeposit(...) external {
-  // 1. Single storage update for nonce
-  uint256 currentNonce = ++nonce;
+### Gas Cost Analysis
 
-  // 2. Memory operations for efficiency
-  uint256 commitment = _calculateCommitment(amount, currentNonce, precommitment);
+| Operation             | Gas Cost | Optimizations          |
+| --------------------- | -------- | ---------------------- |
+| Privacy Pool deposit  | ~150k    | Merkle tree efficiency |
+| Privacy Pool withdraw | ~300k    | Proof verification     |
+| Hybrid deposit        | ~280k    | Direct integration     |
+| Hybrid withdraw       | ~580k    | Atomic operations      |
+| EncryptedERC transfer | ~150k    | Homomorphic encryption |
+| EncryptedERC mint     | ~200k    | Via depositPool()      |
 
-  // 3. Direct external calls (no delegatecall)
-  if (hybridEnabled) {
-    IERC20(ASSET).approve(address(encryptedERC), amount);
-    encryptedERC.depositPool(amount, ASSET, amountPCT);
-  }
+### Architecture Optimizations
 
-  // 4. Optimized event emission
-  emit HybridDeposit(depositor, commitment, amount);
-}
-```
+1. **Direct Integration**: Eliminated relayer contracts (-1 external call)
+2. **Atomic Operations**: Guaranteed consistency across systems
+3. **Gas Efficiency**: Optimized storage operations and batch-friendly designs
+4. **Security Improvements**: Fewer attack vectors and simplified trust model
+5. **Developer Experience**: Cleaner integration patterns and comprehensive testing
+
+## Testing Strategy
+
+### Test Architecture
+
+**Unit Tests** (`test/unit/`)
+
+- Core contract functionality
+- Encrypted ERC operations
+- Hybrid system integration
+- Edge cases and error handling
+
+**Integration Tests**
+
+- End-to-end hybrid flows
+- Multi-user scenarios
+- Cross-contract interactions
+
+**Security Tests**
+
+- Invariant testing
+- Fuzz testing with extensive runs
+- Attack vector validation
+
+### Key Test Scenarios
+
+- Atomic hybrid deposits: Privacy Pool + EncryptedERC minting
+- Atomic hybrid withdrawals: Privacy Pool + EncryptedERC burning
+- Hybrid mode toggling: Enable/disable hybrid functionality
+- Error handling: Failed operations and rollback scenarios
+- Gas optimization: Efficient execution paths
+- Security boundaries: Access control and authorization
 
 ## Documentation
 
 - [Smart Contracts](contracts/README.md) - Core contract documentation
-- [Hybrid System](contracts/src/contracts/hybrid/README.md) - Hybrid integration details
-- [EncryptedERC](contracts/src/contracts/encrypted-erc/README.md) - Encrypted token system
-- [Zero-Knowledge Circuits](circuits/README.md) - ZK circuit specifications
-- [SDK Integration](sdk/README.md) - Developer integration guide
+- [Deployment Guide](docs/deployment.md) - Production deployment procedures
+- [Integration Examples](docs/integration.md) - Developer integration patterns
+- [Security Analysis](docs/security.md) - Security considerations and audits
 - [Testing Guide](docs/testing.md) - Comprehensive testing documentation
 
 ## Contributing
 
 ### Development Standards
 
-1. **Code Quality**: Follow Solidity best practices and gas optimization
-2. **Testing**: Achieve >95% test coverage with unit and integration tests
-3. **Documentation**: Update documentation for all changes
-4. **Security**: Consider security implications and attack vectors
+1. **Code Quality**: Follow Solidity best practices and gas optimization techniques
+2. **Testing**: Achieve >95% test coverage with comprehensive unit and integration tests
+3. **Documentation**: Update documentation for all changes with clear explanations
+4. **Security**: Consider security implications and potential attack vectors
 5. **Compatibility**: Maintain backward compatibility where possible
 
 ### Pull Request Guidelines
@@ -878,104 +675,28 @@ function hybridDeposit(...) external {
 forge build                    # Ensure compilation
 forge test                     # Run all tests
 forge coverage                 # Check coverage
-slither .                      # Run security analysis
+forge fmt                      # Format code
 ```
 
-## Production Readiness
-
-### Pre-Mainnet Checklist
+## Production Deployment Checklist
 
 - [ ] **Security Audits**
-  - [ ] Smart contract audit (Quantstamp/Trail of Bits)
-  - [ ] ZK circuit audit (specialized auditors)
+  - [ ] Smart contract audit by certified auditors
+  - [ ] ZK circuit audit by specialized auditors
   - [ ] Integration testing audit
 - [ ] **Performance Validation**
-  - [ ] Gas optimization review
+  - [ ] Gas optimization review and benchmarking
   - [ ] Load testing with realistic scenarios
   - [ ] MEV resistance analysis
 - [ ] **Integration Testing**
   - [ ] Multi-network deployment testing
-  - [ ] Real verifier integration
-  - [ ] Cross-contract interaction validation
+  - [ ] Real verifier integration validation
+  - [ ] Cross-contract interaction testing
 - [ ] **Operational Readiness**
   - [ ] Multi-signature wallet setup
-  - [ ] Emergency pause mechanisms
-  - [ ] Monitoring and alerting systems
-  - [ ] Incident response procedures
-
-### Deployment Strategy
-
-#### 1. Local Development Testing
-
-```bash
-# Start local node and deploy
-anvil &
-export PRIVATE_KEY=""
-export RPC_URL="http://localhost:8545"
-
-forge script script/DeployHybridSystem.s.sol:DeployHybridSystem \
-  --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast -vvv
-```
-
-#### 2. Security Validation
-
-```bash
-# Run comprehensive test suite
-forge test --gas-report -vv
-forge coverage
-
-# Static analysis
-slither .
-
-# Fuzz testing
-forge test --fuzz-runs 10000
-```
-
-#### 3. Testnet Deployment
-
-```bash
-# Deploy to Fuji testnet
-export RPC_URL="https://api.avax-test.network/ext/bc/C/rpc"
-export PRIVATE_KEY="your_testnet_private_key"
-
-forge script script/DeployHybridSystem.s.sol:DeployHybridSystem \
-  --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast --verify -vvv
-```
-
-#### 4. Integration Testing
-
-```bash
-# Test deployed contracts on testnet
-forge test --fork-url $RPC_URL --match-contract "Integration*" -vv
-
-# Manual testing with cast
-cast call <HYBRID_POOL_ADDRESS> "hybridEnabled()" --rpc-url $RPC_URL
-```
-
-#### 5. Production Deployment
-
-```bash
-# Deploy to mainnet with optimization
-export RPC_URL="https://api.avax.network/ext/bc/C/rpc"
-export PRIVATE_KEY="your_production_private_key"
-export ENTRYPOINT_ADDRESS="0x..." # Real entrypoint address
-
-forge script script/DeployHybridSystem.s.sol:DeployHybridSystem \
-  --rpc-url $RPC_URL --private-key $PRIVATE_KEY \
-  --broadcast --verify --optimize --optimizer-runs 1000 -vvv
-```
-
-#### 6. Post-Deployment Verification
-
-```bash
-# Verify all contracts are properly deployed
-cast code <HYBRID_POOL_ADDRESS> --rpc-url $RPC_URL
-cast code <ENCRYPTED_ERC_ADDRESS> --rpc-url $RPC_URL
-
-# Test basic functionality
-cast call <HYBRID_POOL_ADDRESS> "ASSET()" --rpc-url $RPC_URL
-cast call <ENCRYPTED_ERC_ADDRESS> "isConverter()" --rpc-url $RPC_URL
-```
+  - [ ] Emergency pause mechanisms implementation
+  - [ ] Monitoring and alerting systems deployment
+  - [ ] Incident response procedures documentation
 
 ---
 
@@ -983,12 +704,11 @@ cast call <ENCRYPTED_ERC_ADDRESS> "isConverter()" --rpc-url $RPC_URL
 
 ---
 
-## 🔗 Lunaris Protocol Links
+## Links
 
 - [Website](https://lunaris.dev)
 - [Technical Documentation](https://docs.lunaris.dev)
 - [GitHub Organization](https://github.com/Lunaris-protocol)
 - [Developer Discord](https://discord.gg/lunaris-dev)
-- [Twitter/X](https://twitter.com/lunaris_protocol)
 
 **Professional Support**: For integration assistance, security questions, or technical support, open a detailed issue in this repository or join our developer community on Discord.
