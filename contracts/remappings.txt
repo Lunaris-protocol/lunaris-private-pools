@@ -7,5 +7,6 @@ lean-imt/=../../node_modules/@zk-kit/lean-imt.sol
 poseidon/=../../node_modules/poseidon-solidity
 
 contracts/=src/contracts
+libraries/=src/libraries
 interfaces/=src/interfaces
 encrypted-erc/=src/contracts/encrypted-erc/

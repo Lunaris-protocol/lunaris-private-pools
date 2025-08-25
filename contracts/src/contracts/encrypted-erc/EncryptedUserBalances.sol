@@ -5,9 +5,9 @@
 
 pragma solidity 0.8.28;
 
-import {EncryptedBalance, EGCT, BalanceHistory, AmountPCT} from "./types/Types.sol";
-import {InvalidProof} from "./errors/Errors.sol";
-import {BabyJubJub} from "./libraries/BabyJubJub.sol";
+import {EncryptedBalance, EGCT, BalanceHistory, AmountPCT} from "../../types/Types.sol";
+import {InvalidProof} from "../../errors/Errors.sol";
+import {BabyJubJub} from "../../libraries/BabyJubJub.sol";
 
 /**
  * @title EncryptedUserBalances

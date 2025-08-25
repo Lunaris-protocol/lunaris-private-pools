@@ -4,7 +4,7 @@ pragma solidity 0.8.28;
 import "forge-std/Script.sol";
 import {SimpleHybridPool} from "../src/contracts/hybrid/SimpleHybridPool.sol";
 import {EncryptedERC} from "../src/contracts/encrypted-erc/EncryptedERC.sol";
-import {CreateEncryptedERCParams} from "../src/contracts/encrypted-erc/types/Types.sol";
+import {CreateEncryptedERCParams} from "../src/types/Types.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 // Mock contracts for deployment testing

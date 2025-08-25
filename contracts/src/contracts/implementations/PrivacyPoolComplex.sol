@@ -3,9 +3,9 @@ pragma solidity 0.8.28;
 
 import {IERC20, SafeERC20} from "@oz/token/ERC20/utils/SafeERC20.sol";
 
-import {Constants} from "contracts/lib/Constants.sol";
+import {Constants} from "libraries/Constants.sol";
 
-import {IPrivacyPoolComplex} from "interfaces/IPrivacyPool.sol";
+import {IPrivacyPoolComplex} from "../../interfaces/core/IPrivacyPool.sol";
 
 import {PrivacyPool} from "contracts/PrivacyPool.sol";
 

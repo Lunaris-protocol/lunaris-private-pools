@@ -1,14 +1,13 @@
 // SPDX-License-Identifier: Ecosystem
 pragma solidity 0.8.28;
 
-import {Metadata} from "../types/Types.sol";
+import {Metadata} from "../../../types/Types.sol";
 
 /**
  * @title EncryptedMetadata
  * @notice Simple metadata functionality for encrypted operations
  */
 contract EncryptedMetadata {
-    
     event PrivateMessage(
         address indexed from,
         address indexed to,

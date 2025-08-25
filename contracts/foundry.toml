@@ -33,6 +33,8 @@ runs = 1000
 [rpc_endpoints]
 mainnet = "${ETHEREUM_MAINNET_RPC}"
 sepolia = "${ETHEREUM_SEPOLIA_RPC}"
+fuji = "${AVALANCHE_FUJI_RPC}"
+avalanche = "${AVALANCHE_MAINNET_RPC}"
 gnosis = "${GNOSIS_RPC}"
 
 [etherscan]

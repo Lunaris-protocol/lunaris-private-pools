@@ -5,8 +5,8 @@ import {Test} from "forge-std/Test.sol";
 import {IERC20} from "@oz/token/ERC20/IERC20.sol";
 
 import {EncryptedERC} from "contracts/encrypted-erc/EncryptedERC.sol";
-import {CreateEncryptedERCParams, BurnProof, ProofPoints, Point} from "contracts/encrypted-erc/types/Types.sol";
-import {IState} from "interfaces/IState.sol";
+import {CreateEncryptedERCParams, BurnProof, ProofPoints, Point} from "../../../src/types/Types.sol";
+import {IState} from "interfaces/core/IState.sol";
 
 /**
  * @notice Mock Registrar for testing

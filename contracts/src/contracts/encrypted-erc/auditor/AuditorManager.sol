@@ -4,8 +4,8 @@
 // SPDX-License-Identifier: Ecosystem
 pragma solidity 0.8.28;
 
-import {Point} from "../types/Types.sol";
-import {ZeroAddress} from "../errors/Errors.sol";
+import {Point} from "../../../types/Types.sol";
+import {ZeroAddress} from "../../../errors/Errors.sol";
 
 /**
  * @title AuditorManager
